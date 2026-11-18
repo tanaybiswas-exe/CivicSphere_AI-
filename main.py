@@ -10,7 +10,7 @@ from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-# আপনার প্রদানকৃত Neon PostgreSQL ডাটাবেজ URL
+# Neon PostgreSQL Database URL
 DATABASE_URL = "postgresql://neondb_owner:npg_IKCmYNoWdF47@ep-wild-smoke-be5euaix-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 app = FastAPI(title="CivicSphere AI", version="2.5")
@@ -216,6 +216,57 @@ def register(req: RegReq):
         print("Register Error:", e)
         raise HTTPException(status_code=400, detail="Email or NID already exists in database, or invalid data.")
 
+class UpdateProfileReq(BaseModel):
+    email: str
+    full_name: str
+    current_password: str
+    new_password: str = ""
+
+@app.post("/api/auth/update-profile")
+def update_profile(req: UpdateProfileReq):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE email = %s AND password_hash = %s", 
+                (req.email.strip().lower(), hash_pw(req.current_password)))
+    user = cur.fetchone()
+    
+    if not user:
+        cur.close()
+        conn.close()
+        raise HTTPException(status_code=400, detail="Incorrect current password.")
+    
+    try:
+        if req.new_password.strip():
+            new_hash = hash_pw(req.new_password.strip())
+            cur.execute("UPDATE users SET full_name = %s, password_hash = %s WHERE email = %s",
+                        (req.full_name.strip(), new_hash, req.email.strip().lower()))
+        else:
+            cur.execute("UPDATE users SET full_name = %s WHERE email = %s",
+                        (req.full_name.strip(), req.email.strip().lower()))
+        
+        conn.commit()
+        
+        cur.execute("SELECT * FROM users WHERE email = %s", (req.email.strip().lower(),))
+        updated_user = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        log_audit(updated_user["role"], f"Updated Profile ({updated_user['email']})", f"USR-{updated_user['id']}")
+        
+        return {
+            "success": True,
+            "user": {
+                "id": updated_user["id"],
+                "full_name": updated_user["full_name"],
+                "email": updated_user["email"],
+                "role": updated_user["role"],
+                "nid_masked": f"****-****-{updated_user['nid_number'][-4:]}" if updated_user['nid_number'] else "****"
+            }
+        }
+    except Exception as e:
+        print("Profile Update Error:", e)
+        raise HTTPException(status_code=400, detail="Failed to update profile.")
+
 class AnalyzeReq(BaseModel):
     prompt: str
     lang: str = "en"
@@ -355,7 +406,6 @@ def post_hazard(req: HazardReq):
 
 @app.post("/api/hazards/{hazard_id}/upvote")
 def upvote_hazard(hazard_id: int):
-    conn = and_conn = get_db() if 'get_db' in globals() else None # keeping original style
     conn = get_db()
     cur = conn.cursor()
     cur.execute("UPDATE hazards SET upvotes = upvotes + 1 WHERE id = %s", (hazard_id,))
