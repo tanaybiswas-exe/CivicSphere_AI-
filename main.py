@@ -1,36 +1,38 @@
 import os
-import json
 import math
 import hashlib
 import random
-import urllib.request
 from datetime import datetime
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse
+from fastapi import FastAPI, HTTPException, Header
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 
-# Load environment variables (.env)
 load_dotenv()
 
-# Supabase / PostgreSQL Connection String provided by user
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:YOUR-DATABASE-PASSWORD@db.untivcmmzadwcjgjavcv.supabase.co:5432/postgres?sslmode=require").strip()
-PORT = 8000
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+app = FastAPI(title="CivicSphere AI", version="2.5")
+
+# Serve static folder for index.html
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
+def get_db():
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 def hash_pw(pw: str) -> str:
     return hashlib.sha256(pw.encode("utf-8")).hexdigest()
 
-def get_db():
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-    return conn
-
 def init_db():
+    if not DATABASE_URL:
+        print("DATABASE_URL not found!")
+        return
     try:
         conn = get_db()
         cur = conn.cursor()
-
         cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -40,11 +42,10 @@ def init_db():
             nid_number TEXT UNIQUE,
             dob TEXT,
             role TEXT DEFAULT 'Citizen',
-            is_verified INTEGER DEFAULT 1,
+            is_verified INT DEFAULT 1,
             created_at TEXT
         )
         """)
-
         cur.execute("""
         CREATE TABLE IF NOT EXISTS complaints (
             id SERIAL PRIMARY KEY,
@@ -60,20 +61,18 @@ def init_db():
             created_at TEXT
         )
         """)
-
         cur.execute("""
         CREATE TABLE IF NOT EXISTS hazards (
             id SERIAL PRIMARY KEY,
             title TEXT,
             category TEXT,
-            lat REAL,
-            lng REAL,
-            upvotes INTEGER DEFAULT 1,
+            lat DOUBLE PRECISION,
+            lng DOUBLE PRECISION,
+            upvotes INT DEFAULT 1,
             status TEXT DEFAULT 'Open',
             created_at TEXT
         )
         """)
-
         cur.execute("""
         CREATE TABLE IF NOT EXISTS audit_logs (
             id SERIAL PRIMARY KEY,
@@ -83,7 +82,6 @@ def init_db():
             timestamp TEXT
         )
         """)
-
         cur.execute("""
         CREATE TABLE IF NOT EXISTS govt_services (
             id SERIAL PRIMARY KEY,
@@ -96,19 +94,16 @@ def init_db():
         )
         """)
 
-        cur.execute("SELECT COUNT(*) FROM users")
-        if cur.fetchone()['count'] == 0:
-            cur.execute("""
-            INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, ('System Administrator', 'admin@civicsphere.gov.bd', hash_pw('admin123'), '1995547891234', '1995-05-12', 'Admin', 1, '2026-01-01'))
-            cur.execute("""
-            INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, ('Tanay Biswas Bandhan', 'tanay@civicsphere.ai', hash_pw('citizen123'), '2000269874512', '2000-04-22', 'Citizen', 1, '2026-01-02'))
+        # Insert default admin/user if empty
+        cur.execute("SELECT COUNT(*) as cnt FROM users")
+        if cur.fetchone()['cnt'] == 0:
+            cur.execute("INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        ('System Administrator', 'admin@civicsphere.gov.bd', hash_pw('admin123'), '1995547891234', '1995-05-12', 'Admin', 1, '2026-01-01'))
+            cur.execute("INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        ('Tanay Biswas Bandhan', 'tanay@civicsphere.ai', hash_pw('citizen123'), '2000269874512', '2000-04-22', 'Citizen', 1, '2026-01-02'))
 
-        cur.execute("SELECT COUNT(*) FROM govt_services")
-        if cur.fetchone()['count'] == 0:
+        cur.execute("SELECT COUNT(*) as cnt FROM govt_services")
+        if cur.fetchone()['cnt'] == 0:
             services = [
                 ("Central Grievance Redress System (GRS)", "Cabinet Division", "বিনামূল্যে (Free)", "15–30 Working Days", "https://grs.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
                 ("Anti-Corruption Commission (ACC / দুদক)", "Independent Commission", "বিনামূল্যে (Free)", "Helpline 106", "https://acc.org.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
@@ -116,57 +111,32 @@ def init_db():
                 ("Local Government Engineering Department (LGED)", "Local Government Division", "বিনামূল্যে (Free)", "15–21 Working Days", "https://lged.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M"))
             ]
             for s in services:
-                cur.execute("""
-                INSERT INTO govt_services (service_name, ministry, fee, sla_timeline, portal_url, last_auto_synced)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                """, s)
-
-        cur.execute("SELECT COUNT(*) FROM complaints")
-        if cur.fetchone()['count'] == 0:
-            cur.execute("""
-            INSERT INTO complaints (tracking_id, citizen_nid, external_ref, domain, department, description, draft_text, status, evidence_note, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, ('CIVIC-2026-1042', '2000269874512', 'GRS-88412', 'Roads, Drainage & Urban Infrastructure', 'Dhaka North City Corporation (DNCC)', 'Severe waterlogging and uncovered deep manhole near Mirpur 10 roundabout.', 'Date: 10 November 2026\nTo, The Chief Executive Officer, DNCC...\nSubject: Urgent Remediation of Uncovered Manhole.', 'In Progress', 'photo_mirpur10.jpg', '2026-11-10 10:30'))
-
-        cur.execute("SELECT COUNT(*) FROM hazards")
-        if cur.fetchone()['count'] == 0:
-            cur.execute("""
-            INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, ('Uncovered Deep Manhole on Main Road', 'Drainage Hazard', 23.8069, 90.3687, 34, 'Verified', '2026-11-12'))
-
-        cur.execute("SELECT COUNT(*) FROM audit_logs")
-        if cur.fetchone()['count'] == 0:
-            cur.execute("""
-            INSERT INTO audit_logs (actor_role, action, target_id, timestamp)
-            VALUES (%s, %s, %s, %s)
-            """, ('System', 'Initialized Supabase PostgreSQL DB & NID Ledger', 'SYS-BOOT', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                cur.execute("INSERT INTO govt_services (service_name, ministry, fee, sla_timeline, portal_url, last_auto_synced) VALUES (%s, %s, %s, %s, %s, %s)", s)
 
         conn.commit()
         cur.close()
         conn.close()
-        print("Supabase Database initialized successfully.")
+        print("Supabase DB initialized successfully via FastAPI.")
     except Exception as e:
-        print("Database initialization error (Check connection string):", e)
+        print("DB Init Error:", e)
 
-init_db()
+@app.on_event("startup")
+def startup_event():
+    init_db()
 
-SCHEDULE_RATES = {
-    "earthwork_cum": {"name": "Earthwork in Box/Road Excavation (per m³)", "lged": 320.0, "pwd": 340.0, "unit": "m³"},
-    "brick_flat_soling_sqm": {"name": "1st Class Brick Flat Soling (per m²)", "lged": 680.0, "pwd": 710.0, "unit": "m²"},
-    "rcc_concrete_cum": {"name": "RCC Works 1:2:4 with Stone Chips (per m³)", "lged": 11500.0, "pwd": 11900.0, "unit": "m³"},
-    "ms_rebar_kg": {"name": "60-Grade MS Deformed Rebar (per kg)", "lged": 96.0, "pwd": 98.5, "unit": "kg"},
-    "bituminous_carpeting_sqm": {"name": "25mm Dense Bituminous Carpeting (per m²)", "lged": 890.0, "pwd": 920.0, "unit": "m²"},
-}
+@app.get("/", response_class=HTMLResponse)
+def read_index():
+    if os.path.exists("static/index.html"):
+        with open("static/index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return "CivicSphere AI Backend Running. static/index.html not found."
 
 def log_audit(role: str, action: str, target_id: str):
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO audit_logs (actor_role, action, target_id, timestamp) VALUES (%s, %s, %s, %s)",
-            (role, action, target_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        )
+        cur.execute("INSERT INTO audit_logs (actor_role, action, target_id, timestamp) VALUES (%s, %s, %s, %s)",
+                    (role, action, target_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
         conn.commit()
         cur.close()
         conn.close()
@@ -181,8 +151,74 @@ def haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> floa
     a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-def classify_issue(prompt: str, lang: str):
-    p = prompt.lower()
+SCHEDULE_RATES = {
+    "earthwork_cum": {"name": "Earthwork in Box/Road Excavation (per m³)", "lged": 320.0, "pwd": 340.0, "unit": "m³"},
+    "brick_flat_soling_sqm": {"name": "1st Class Brick Flat Soling (per m²)", "lged": 680.0, "pwd": 710.0, "unit": "m²"},
+    "rcc_concrete_cum": {"name": "RCC Works 1:2:4 with Stone Chips (per m³)", "lged": 11500.0, "pwd": 11900.0, "unit": "m³"},
+    "ms_rebar_kg": {"name": "60-Grade MS Deformed Rebar (per kg)", "lged": 96.0, "pwd": 98.5, "unit": "kg"},
+    "bituminous_carpeting_sqm": {"name": "25mm Dense Bituminous Carpeting (per m²)", "lged": 890.0, "pwd": 920.0, "unit": "m²"},
+}
+
+class LoginReq(BaseModel):
+    email: str
+    password: str
+
+@app.post("/api/auth/login")
+def login(req: LoginReq):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE email = %s AND password_hash = %s", (req.email.strip().lower(), hash_pw(req.password)))
+    user = cur.fetchone()
+    cur.close()
+    conn.close()
+    if user:
+        log_audit(user["role"], f"Authenticated Session ({user['email']})", f"USR-{user['id']}")
+        return {
+            "success": True,
+            "user": {
+                "id": user["id"],
+                "full_name": user["full_name"],
+                "email": user["email"],
+                "role": user["role"],
+                "nid_masked": f"****-****-{user['nid_number'][-4:]}" if user['nid_number'] else "****"
+            }
+        }
+    raise HTTPException(status_code=401, detail="Invalid credentials")
+
+class RegReq(BaseModel):
+    full_name: str
+    email: str
+    password: str
+    nid_number: str
+    dob: str
+
+@app.post("/api/auth/register")
+def register(req: RegReq):
+    nid = req.nid_number.strip()
+    if not nid.isdigit() or len(nid) not in [10, 13, 17]:
+        raise HTTPException(status_code=400, detail="Invalid NID / Smart Card Number.")
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, 'Citizen', 1, %s)",
+                    (req.full_name.strip(), req.email.strip().lower(), hash_pw(req.password), nid, req.dob.strip(), datetime.now().strftime("%Y-%m-%d")))
+        conn.commit()
+        cur.execute("SELECT LASTVAL()")
+        uid = cur.fetchone()['lastval']
+        cur.close()
+        conn.close()
+        log_audit("Citizen", f"NID Verified Registration (****{nid[-4:]})", f"USR-{uid}")
+        return {"success": True, "message": "NID verified! Account created successfully. Please login."}
+    except Exception:
+        raise HTTPException(status_code=400, detail="Email or NID already exists in database.")
+
+class AnalyzeReq(BaseModel):
+    prompt: str
+    lang: str = "en"
+
+@app.post("/api/assistant/analyze")
+def analyze_issue(req: AnalyzeReq):
+    p = req.prompt.lower()
     if any(k in p for k in ["bribe", "ghush", "ঘুষ", "দুর্নীতি", "corruption"]):
         domain, dept, law = "Anti-Corruption & Bribery", "Anti-Corruption Commission (ACC / দুদক)", "Prevention of Corruption Act, 1947"
     elif any(k in p for k in ["price", "mrp", "দাম", "overcharge", "oil"]):
@@ -190,273 +226,191 @@ def classify_issue(prompt: str, lang: str):
     else:
         domain, dept, law = "Roads & Urban Infrastructure", "City Corporation / LGED", "Local Government Act, 2009"
 
-    draft = f"To: {dept}\nSubject: Formal Grievance regarding {domain}.\n\nDetails: {prompt}\n\nStatutory Ref: {law}"
+    draft = f"To: {dept}\nSubject: Formal Grievance regarding {domain}.\n\nDetails: {req.prompt}\n\nStatutory Ref: {law}"
     return {"domain": domain, "department": dept, "law": law, "draft": draft}
 
-class CivicSphereHandler(BaseHTTPRequestHandler):
-    def _send_json(self, data, status=200):
-        payload = json.dumps(data).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(payload)))
-        self.end_headers()
-        self.wfile.write(payload)
+class ComplaintReq(BaseModel):
+    citizen_nid: str
+    domain: str
+    department: str
+    description: str
+    draft_text: str
+    evidence_note: str = "None"
 
-    def _read_json(self):
-        length = int(self.headers.get("Content-Length", 0))
-        return json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+@app.post("/api/complaints")
+def create_complaint(req: ComplaintReq):
+    tracking_id = f"CIVIC-2026-{random.randint(1200, 9999)}"
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO complaints (tracking_id, citizen_nid, external_ref, domain, department, description, draft_text, status, evidence_note, created_at) VALUES (%s, %s, 'Pending', %s, %s, %s, %s, 'Draft', %s, %s)",
+                (tracking_id, req.citizen_nid, req.domain, req.department, req.description, req.draft_text, req.evidence_note, datetime.now().strftime("%Y-%m-%d")))
+    conn.commit()
+    cur.close()
+    conn.close()
+    log_audit("Citizen", f"Created Complaint Draft ({req.domain})", tracking_id)
+    return {"tracking_id": tracking_id}
 
-    def do_GET(self):
-        path = urlparse(self.path).path
+@app.get("/api/complaints")
+def get_complaints():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM complaints ORDER BY id DESC")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
 
-        if path in ["/", "/index.html"]:
-            try:
-                with open("static/index.html", "rb") as f:
-                    content = f.read()
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(content)))
-                self.end_headers()
-                self.wfile.write(content)
-            except FileNotFoundError:
-                self._send_json({"error": "static/index.html not found"}, 404)
-            return
+@app.get("/api/boq/rates")
+def get_boq_rates():
+    return SCHEDULE_RATES
 
-        if path == "/api/complaints":
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM complaints ORDER BY id DESC")
-            rows = cur.fetchall()
-            cur.close()
-            conn.close()
-            self._send_json([dict(r) for r in rows])
-            return
+class BoqItem(BaseModel):
+    item_code: str
+    quantity: float
+    quoted_unit_rate: float
 
-        if path == "/api/boq/rates":
-            self._send_json(SCHEDULE_RATES)
-            return
+class BoqAuditReq(BaseModel):
+    project_name: str
+    agency: str = "LGED"
+    allocated_budget: float
+    items: list[BoqItem]
 
-        if path == "/api/hazards":
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM hazards ORDER BY upvotes DESC")
-            rows = cur.fetchall()
-            cur.close()
-            conn.close()
-            self._send_json([dict(r) for r in rows])
-            return
+@app.post("/api/boq/audit")
+def audit_boq(req: BoqAuditReq):
+    agency_key = "pwd" if req.agency.upper() == "PWD" else "lged"
+    total_bench, total_quoted, anomalies = 0.0, 0.0, 0
+    line_results = []
 
-        if path == "/api/services":
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM govt_services ORDER BY id ASC")
-            rows = cur.fetchall()
-            cur.close()
-            conn.close()
-            self._send_json([dict(r) for r in rows])
-            return
+    for item in req.items:
+        sched = SCHEDULE_RATES.get(item.item_code)
+        if not sched:
+            continue
+        std = sched[agency_key]
+        b_tot, q_tot = std * item.quantity, item.quoted_unit_rate * item.quantity
+        var_pct = round(((item.quoted_unit_rate - std) / std) * 100, 2)
+        if var_pct > 20:
+            anomalies += 1
+        total_bench += b_tot
+        total_quoted += q_tot
+        line_results.append({
+            "name": sched["name"], "unit": sched["unit"], "quantity": item.quantity,
+            "standard_rate": std, "quoted_rate": item.quoted_unit_rate, "benchmark_total": b_tot,
+            "quoted_total": q_tot, "rate_variance_pct": var_pct,
+            "flag": "INFLATED (>20%)" if var_pct > 20 else "NORMAL"
+        })
 
-        if path == "/api/admin/analytics":
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute("SELECT domain, status FROM complaints")
-            complaints = cur.fetchall()
-            cur.execute("SELECT category, upvotes, status FROM hazards")
-            hazards = cur.fetchall()
-            cur.execute("SELECT id, full_name, email, nid_number, dob, role, is_verified, created_at FROM users ORDER BY id DESC")
-            users = cur.fetchall()
-            cur.execute("SELECT * FROM audit_logs ORDER BY id DESC LIMIT 25")
-            logs = cur.fetchall()
-            cur.close()
-            conn.close()
+    budget_var_pct = round(((total_quoted - req.allocated_budget) / req.allocated_budget) * 100, 2) if req.allocated_budget > 0 else 0
+    sched_var_pct = round(((total_quoted - total_bench) / total_bench) * 100, 2) if total_bench > 0 else 0
 
-            status_counts = {"Draft": 0, "Ready": 0, "Submitted": 0, "In Progress": 0, "Resolved": 0}
-            domain_counts = {}
-            for c in complaints:
-                status_counts[c["status"]] = status_counts.get(c["status"], 0) + 1
-                domain_counts[c["domain"]] = domain_counts.get(c["domain"], 0) + 1
+    return {
+        "project_name": req.project_name, "agency": req.agency.upper(),
+        "matrix": {
+            "allocated_budget": req.allocated_budget,
+            "benchmark_schedule_cost": round(total_bench, 2),
+            "contractor_quoted_cost": round(total_quoted, 2),
+            "budget_variance_pct": budget_var_pct,
+            "schedule_variance_pct": sched_var_pct
+        },
+        "overall_alert": anomalies > 0, "anomaly_count": anomalies, "items": line_results,
+        "disclaimer": "Technical auditing indicator based on LGED/PWD Schedule of Rates."
+    }
 
-            masked_users = []
-            for u in users:
-                ud = dict(u)
-                nid = ud["nid_number"] or ""
-                ud["nid_masked"] = f"****-****-{nid[-4:]}" if len(nid) >= 4 else nid
-                masked_users.append(ud)
+class HazardReq(BaseModel):
+    title: str
+    category: str
+    lat: float
+    lng: float
+    force_create: bool = False
 
-            self._send_json({
-                "total_complaints": len(complaints),
-                "resolved_complaints": status_counts.get("Resolved", 0),
-                "total_hazards": len(hazards),
-                "total_users": len(users),
-                "users": masked_users,
-                "status_counts": status_counts,
-                "domain_counts": domain_counts,
-                "audit_logs": [dict(l) for l in logs]
-            })
-            return
-
-        self._send_json({"error": "Not Found"}, 404)
-
-    def do_POST(self):
-        path = urlparse(self.path).path
-        body = self._read_json()
-
-        if path == "/api/auth/register":
-            name = (body.get("full_name") or "").strip()
-            email = (body.get("email") or "").strip().lower()
-            password = body.get("password") or ""
-            nid = (body.get("nid_number") or "").strip()
-            dob = (body.get("dob") or "").strip()
-
-            if not nid.isdigit() or len(nid) not in [10, 13, 17]:
-                self._send_json({"success": False, "message": "Invalid NID / Smart Card Number (Must be 10, 13 or 17 digits)."}, 400)
-                return
-
-            try:
-                conn = get_db()
-                cur = conn.cursor()
-                cur.execute(
-                    "INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, 'Citizen', 1, %s)",
-                    (name, email, hash_pw(password), nid, dob, datetime.now().strftime("%Y-%m-%d"))
-                )
-                conn.commit()
-                cur.execute("SELECT LASTVAL()")
-                uid = cur.fetchone()['lastval']
+@app.post("/api/hazards")
+def post_hazard(req: HazardReq):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM hazards")
+    existing = cur.fetchall()
+    
+    if not req.force_create:
+        for h in existing:
+            dist = haversine_meters(req.lat, req.lng, h["lat"], h["lng"])
+            if dist <= 100.0:
                 cur.close()
                 conn.close()
-                log_audit("Citizen", f"NID Verified Registration (****{nid[-4:]})", f"USR-{uid}")
-                self._send_json({"success": True, "message": "NID verified! Account created successfully. Please login."})
-            except Exception as e:
-                self._send_json({"success": False, "message": "Email or NID already exists in database."}, 400)
-            return
+                return {
+                    "duplicate_detected": True,
+                    "distance_meters": round(dist, 1),
+                    "existing_hazard": dict(h)
+                }
 
-        if path == "/api/auth/login":
-            email = (body.get("email") or "").strip().lower()
-            password = body.get("password") or ""
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM users WHERE email = %s AND password_hash = %s", (email, hash_pw(password)))
-            user = cur.fetchone()
-            cur.close()
-            conn.close()
+    cur.execute("INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at) VALUES (%s, %s, %s, %s, %s, 'Open', %s)",
+                (req.title, req.category, req.lat, req.lng, 1, datetime.now().strftime("%Y-%m-%d")))
+    conn.commit()
+    cur.close()
+    conn.close()
+    log_audit("Citizen", f"Pinned Hazard: {req.title}", "HAZ-NEW")
+    return {"duplicate_detected": False}
 
-            if user:
-                log_audit(user["role"], f"Authenticated Session ({user['email']})", f"USR-{user['id']}")
-                self._send_json({
-                    "success": True,
-                    "user": {
-                        "id": user["id"],
-                        "full_name": user["full_name"],
-                        "email": user["email"],
-                        "role": user["role"],
-                        "nid_masked": f"****-****-{user['nid_number'][-4:]}"
-                    }
-                })
-            else:
-                self._send_json({"success": False, "message": "Invalid credentials. Access denied."}, 401)
-            return
+@app.post("/api/hazards/{hazard_id}/upvote")
+def upvote_hazard(hazard_id: int):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("UPDATE hazards SET upvotes = upvotes + 1 WHERE id = %s", (hazard_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"success": True}
 
-        if path == "/api/assistant/analyze":
-            result = classify_issue(body.get("prompt", ""), body.get("lang", "en"))
-            self._send_json(result)
-            return
+@app.get("/api/hazards")
+def get_hazards():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM hazards ORDER BY upvotes DESC")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
 
-        if path == "/api/complaints":
-            tracking_id = f"CIVIC-2026-{random.randint(1200, 9999)}"
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO complaints (tracking_id, citizen_nid, external_ref, domain, department, description, draft_text, status, evidence_note, created_at) VALUES (%s, %s, 'Pending', %s, %s, %s, %s, 'Draft', %s, %s)",
-                (tracking_id, body.get("citizen_nid", "Verified-Citizen"), body.get("domain"), body.get("department"), body.get("description"), body.get("draft_text"), body.get("evidence_note", "None"), datetime.now().strftime("%Y-%m-%d"))
-            )
-            conn.commit()
-            cur.close()
-            conn.close()
-            log_audit("Citizen", f"Created Complaint Draft ({body.get('domain')})", tracking_id)
-            self._send_json({"tracking_id": tracking_id})
-            return
+@app.get("/api/services")
+def get_services():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM govt_services ORDER BY id ASC")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
 
-        if path == "/api/boq/audit":
-            agency = body.get("agency", "LGED").upper()
-            agency_key = "pwd" if agency == "PWD" else "lged"
-            allocated = float(body.get("allocated_budget", 0))
-            items = body.get("items", [])
-            total_bench, total_quoted, anomalies = 0.0, 0.0, 0
-            line_results = []
+@app.get("/api/admin/analytics")
+def admin_analytics():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT domain, status FROM complaints")
+    complaints = cur.fetchall()
+    cur.execute("SELECT category, upvotes, status FROM hazards")
+    hazards = cur.fetchall()
+    cur.execute("SELECT id, full_name, email, nid_number, dob, role, is_verified, created_at FROM users ORDER BY id DESC")
+    users = cur.fetchall()
+    cur.execute("SELECT * FROM audit_logs ORDER BY id DESC LIMIT 25")
+    logs = cur.fetchall()
+    cur.close()
+    conn.close()
 
-            for item in items:
-                sched = SCHEDULE_RATES.get(item.get("item_code"))
-                if not sched: continue
-                qty = float(item.get("quantity", 0))
-                quoted = float(item.get("quoted_unit_rate", 0))
-                std = sched[agency_key]
-                b_tot, q_tot = std * qty, quoted * qty
-                var_pct = round(((quoted - std) / std) * 100, 2)
-                if var_pct > 20: anomalies += 1
-                total_bench += b_tot
-                total_quoted += q_tot
-                line_results.append({
-                    "name": sched["name"], "unit": sched["unit"], "quantity": qty,
-                    "standard_rate": std, "quoted_rate": quoted, "benchmark_total": b_tot,
-                    "quoted_total": q_tot, "rate_variance_pct": var_pct,
-                    "flag": "INFLATED (>20%)" if var_pct > 20 else "NORMAL"
-                })
+    status_counts = {"Draft": 0, "Ready": 0, "Submitted": 0, "In Progress": 0, "Resolved": 0}
+    for c in complaints:
+        status_counts[c["status"]] = status_counts.get(c["status"], 0) + 1
 
-            self._send_json({
-                "project_name": body.get("project_name"), "agency": agency,
-                "matrix": {"allocated_budget": allocated, "benchmark_schedule_cost": round(total_bench, 2), "contractor_quoted_cost": round(total_quoted, 2)},
-                "overall_alert": anomalies > 0, "anomaly_count": anomalies, "items": line_results,
-                "disclaimer": "Technical auditing indicator based on LGED/PWD Schedule of Rates."
-            })
-            return
+    masked_users = []
+    for u in users:
+        ud = dict(u)
+        nid = ud["nid_number"] or ""
+        ud["nid_masked"] = f"****-****-{nid[-4:]}" if len(nid) >= 4 else nid
+        masked_users.append(ud)
 
-        if path == "/api/hazards":
-            lat = float(body.get("lat", 23.8103))
-            lng = float(body.get("lng", 90.4125))
-            force = bool(body.get("force_create", False))
-
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM hazards")
-            existing = cur.fetchall()
-            if not force:
-                for h in existing:
-                    dist = haversine_meters(lat, lng, h["lat"], h["lng"])
-                    if dist <= 100.0:
-                        cur.close()
-                        conn.close()
-                        self._send_json({
-                            "duplicate_detected": True,
-                            "distance_meters": round(dist, 1),
-                            "existing_hazard": dict(h)
-                        })
-                        return
-
-            cur.execute(
-                "INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at) VALUES (%s, %s, %s, %s, %s, 'Open', %s)",
-                (body.get("title", "Civic Hazard"), body.get("category", "Road Damage"), lat, lng, 1, datetime.now().strftime("%Y-%m-%d"))
-            )
-            conn.commit()
-            cur.close()
-            conn.close()
-            log_audit("Citizen", f"Pinned Hazard: {body.get('title')}", "HAZ-NEW")
-            self._send_json({"duplicate_detected": False})
-            return
-
-        if path.startswith("/api/hazards/") and path.endswith("/upvote"):
-            h_id = int(path.split("/")[3])
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute("UPDATE hazards SET upvotes = upvotes + 1 WHERE id = %s", (h_id,))
-            conn.commit()
-            cur.close()
-            conn.close()
-            self._send_json({"success": True})
-            return
-
-        self._send_json({"error": "Not Found"}, 404)
-
-if __name__ == "__main__":
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), CivicSphereHandler)
-    print(f"CivicSphere AI running with Supabase PostgreSQL at http://127.0.0.1:{PORT}")
-    server.serve_forever()
+    return {
+        "total_complaints": len(complaints),
+        "resolved_complaints": status_counts.get("Resolved", 0),
+        "total_hazards": len(hazards),
+        "total_users": len(users),
+        "users": masked_users,
+        "status_counts": status_counts,
+        "audit_logs": [dict(l) for l in logs]
+    }
