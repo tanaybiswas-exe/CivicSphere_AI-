@@ -194,8 +194,8 @@ class RegReq(BaseModel):
 @app.post("/api/auth/register")
 def register(req: RegReq):
     nid = req.nid_number.strip()
-    if not nid.isdigit() or len(nid) not in [10, 13, 17]:
-        raise HTTPException(status_code=400, detail="Invalid NID / Smart Card Number.")
+    if not nid.isdigit() or len(nid) < 10:
+        raise HTTPException(status_code=400, detail="Invalid NID / Smart Card Number. Must be at least 10 digits.")
     try:
         conn = get_db()
         cur = conn.cursor()
