@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CivicSphere AI — Citizen Empowerment & Public Audit Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', 'Hind Siliguri', sans-serif; }
+    .nav-active {
+      background: linear-gradient(90deg, rgba(16,185,129,0.2) 0%, rgba(16,185,129,0.03) 100%);
+      color: #ffffff;
+      border-left: 3px solid #10b981;
+    }
+    #map { height: 460px; width: 100%; border-radius: 0.875rem; z-index: 1; }
+    @media print {
+      body * { visibility: hidden; }
+      #printableArea, #printableArea * { visibility: visible; }
+      #printableArea { position: absolute; left: 0; top: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100/90 text-slate-800 antialiased selection:bg-emerald-200">
+
+  <!-- TOAST NOTIFICATIONS -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+  <!-- ========================================================= -->
+  <!-- NID / SMART CARD VERIFIED LOGIN & REGISTRATION MODAL      -->
+  <!-- ========================================================= -->
+  <div id="authModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white max-w-md w-full p-7 md:p-8 rounded-3xl shadow-2xl space-y-5 border border-slate-200 my-auto">
+      <div class="text-center space-y-1.5">
+        <div class="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-800 text-white rounded-2xl mx-auto flex items-center justify-center font-extrabold text-xl shadow-lg">CS</div>
+        <h2 id="authModalTitle" class="text-2xl font-extrabold text-slate-900">CivicSphere AI Portal</h2>
+        <p id="authModalSub" class="text-xs text-slate-500">Bangladesh National ID (NID / Smart Card) Verified Access</p>
+      </div>
+
+      <!-- Portal Mode Selector (Citizen vs Admin) -->
+      <div class="grid grid-cols-2 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+        <button id="btnCitizenMode" onclick="setLoginRoleHint('citizen')" class="py-2 rounded-lg bg-white text-slate-900 shadow-sm transition">Citizen Login</button>
+        <button id="btnAdminMode" onclick="setLoginRoleHint('admin')" class="py-2 rounded-lg text-slate-500 hover:text-slate-900 transition">Admin Console</button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <div id="loginForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Email Address</label>
+          <input id="loginEmail" type="email" value="tanay@civicsphere.ai" class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Password</label>
+          <input id="loginPassword" type="password" value="citizen123" class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none" />
+        </div>
+        <button onclick="handleLogin()" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 rounded-xl shadow-md transition">
+          Verify & Enter Portal →
+        </button>
+        <p class="text-center text-xs text-slate-500 pt-1">
+          New Citizen? <button onclick="toggleAuthMode('register')" class="text-emerald-700 font-extrabold hover:underline">Register with NID / Smart Card</button>
+        </p>
+      </div>
+
+      <!-- REGISTER FORM (NID / SMART CARD VALIDATION) -->
+      <div id="registerForm" class="space-y-3.5 hidden">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Full Name (As per NID / Smart Card)</label>
+          <input id="regName" type="text" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm" placeholder="e.g., Tanay Biswas Bandhan" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Email Address</label>
+          <input id="regEmail" type="email" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm" placeholder="citizen@example.com" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Password (Min 6 characters)</label>
+          <input id="regPassword" type="password" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm" placeholder="••••••••" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">NID / Smart Card #</label>
+            <input id="regNid" type="text" maxlength="17" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm font-mono" placeholder="10, 13, or 17 digits" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Date of Birth</label>
+            <input id="regDob" type="date" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm" />
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-lg border">
+          🔒 Your NID / Smart Card number is cross-checked for authenticity and masked in public views.
+        </p>
+        <button onclick="handleRegister()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl shadow-md transition">
+          Validate NID & Create Account
+        </button>
+        <p class="text-center text-xs text-slate-500">
+          Already verified? <button onclick="toggleAuthMode('login')" class="text-emerald-700 font-extrabold hover:underline">Back to Login</button>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOP INDEPENDENT PLATFORM GOVERNANCE BAR -->
+  <header class="bg-slate-950 text-slate-200 text-xs px-4 lg:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 sticky top-0 z-40">
+    <div class="flex items-center gap-2.5 max-w-3xl">
+      <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold px-2 py-0.5 rounded text-[10px] tracking-wider uppercase shrink-0">
+        Independent Platform
+      </span>
+      <p id="noticeText" class="text-slate-300 leading-snug">
+        CivicSphere AI is an independent citizen assistance platform—<strong>NOT</strong> an official Government of Bangladesh website. BOQ alerts are technical Schedule indicators, not legal accusations.
+      </p>
+    </div>
+
+    <div class="flex items-center gap-3 ml-auto">
+      <div id="sessionUserBadge" class="hidden sm:flex items-center gap-1.5 bg-slate-900 px-3 py-1 rounded-full border border-emerald-700/60 text-[11px] text-emerald-300 font-semibold">
+        <span>✓ NID Verified</span>
+      </div>
+      <button onclick="toggleLanguage()" id="langBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1 rounded-lg shadow-sm transition cursor-pointer">
+        বাংলা / EN
+      </button>
+      <button onclick="logout()" class="bg-rose-900/70 hover:bg-rose-800 text-rose-100 font-bold px-3 py-1 rounded-lg transition cursor-pointer">
+        Logout
+      </button>
+    </div>
+  </header>
+
+  <div class="flex min-h-[calc(100vh-44px)]">
+    <!-- SIDEBAR NAVIGATION (ALL MODULES + SEPARATE ADMIN CONSOLE) -->
+    <aside class="w-72 bg-slate-900 text-slate-300 flex-shrink-0 hidden lg:flex flex-col justify-between border-r border-slate-800">
+      <div>
+        <div class="p-6 border-b border-slate-800/80">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-extrabold text-lg shadow-lg">
+              CS
+            </div>
+            <div>
+              <h1 class="text-white font-extrabold text-lg tracking-tight">CivicSphere AI</h1>
+              <p id="sidebarRoleLabel" class="text-xs text-emerald-400 font-semibold">Citizen Portal</p>
+            </div>
+          </div>
+        </div>
+
+        <nav class="p-3.5 space-y-1 text-sm font-medium" id="sidebarNav">
+          <button onclick="switchTab('overview')" data-tab="overview" class="nav-btn nav-active w-full text-left px-3.5 py-2.5 rounded-lg flex items-center gap-3 transition">
+            <span>🏠</span> <span data-i18n="nav_overview">Command Overview</span>
+          </button>
+          <button onclick="switchTab('assistant')" data-tab="assistant" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>🤖</span> <span data-i18n="nav_assistant">AI Citizen Assistant</span>
+          </button>
+          <button onclick="switchTab('complaints')" data-tab="complaints" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>📋</span> <span data-i18n="nav_complaints">Complaint Management</span>
+          </button>
+          <button onclick="switchTab('boq')" data-tab="boq" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>💰</span> <span data-i18n="nav_boq">Project Cost Audit (BOQ)</span>
+          </button>
+          <button onclick="switchTab('map')" data-tab="map" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>🗺️</span> <span data-i18n="nav_map">Geospatial Hazard Map</span>
+          </button>
+          <button onclick="switchTab('consumer')" data-tab="consumer" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>🏷️</span> <span data-i18n="nav_consumer">Consumer Rights (16121)</span>
+          </button>
+          <button onclick="switchTab('anticorruption')" data-tab="anticorruption" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>🛡️</span> <span data-i18n="nav_anticorruption">Anti-Corruption (106)</span>
+          </button>
+          <button onclick="switchTab('directory')" data-tab="directory" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>🌐</span> <span data-i18n="nav_directory">Govt Services Guide</span>
+          </button>
+
+          <!-- DEDICATED ADMIN INTERFACE TAB -->
+          <div id="adminNavDivider" class="pt-3 mt-3 border-t border-slate-800 hidden">
+            <p class="px-3.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1">Admin Governance</p>
+            <button onclick="switchTab('admin')" data-tab="admin" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold flex items-center gap-3 transition">
+              <span>📊</span> <span data-i18n="nav_admin">Admin Console & Audit</span>
+            </button>
+          </div>
+        </nav>
+      </div>
+
+      <div class="p-4 m-3.5 rounded-xl bg-slate-800/70 border border-slate-700/80 text-xs space-y-1.5">
+        <p class="font-bold text-emerald-400 uppercase tracking-wider text-[10px]">Emergency Helplines (BD)</p>
+        <div class="flex justify-between"><span>National Emergency</span><span class="font-bold text-white">999</span></div>
+        <div class="flex justify-between"><span>ACC Anti-Corruption</span><span class="font-bold text-white">106</span></div>
+        <div class="flex justify-between"><span>Consumer Rights</span><span class="font-bold text-white">16121</span></div>
+        <div class="flex justify-between"><span>National Info & GRS</span><span class="font-bold text-white">333</span></div>
+        <div class="flex justify-between"><span>Land Hotline</span><span class="font-bold text-white">16122</span></div>
+      </div>
+    </aside>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="flex-1 p-5 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+
+      <!-- MOBILE SELECTOR -->
+      <div class="lg:hidden">
+        <select id="mobileNavSelect" onchange="switchTab(this.value)" class="w-full p-3 rounded-xl border border-slate-300 bg-white font-bold text-sm shadow-sm">
+          <option value="overview">🏠 Command Overview</option>
+          <option value="assistant">🤖 AI Citizen Assistant</option>
+          <option value="complaints">📋 Complaint Management</option>
+          <option value="boq">💰 Project Cost Audit (BOQ)</option>
+          <option value="map">🗺️ Geospatial Hazard Map</option>
+          <option value="consumer">🏷️ Consumer Rights (16121)</option>
+          <option value="anticorruption">🛡️ Anti-Corruption (106)</option>
+          <option value="directory">🌐 Govt Services Guide</option>
+          <option value="admin" id="mobileAdminOpt" class="hidden">📊 Admin Console & Audit</option>
+        </select>
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- MODULE 0: COMMAND OVERVIEW                                -->
+      <!-- ========================================================= -->
+      <section id="tab-overview" class="tab-section space-y-6">
+        <div class="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-7 rounded-2xl shadow-md border border-emerald-900/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div class="space-y-2 max-w-2xl">
+            <span class="text-xs font-bold uppercase tracking-widest text-emerald-400">NID-Verified Citizen Empowerment Suite</span>
+            <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight" data-i18n="hero_title">Bridge Information Asymmetry with AI & Open Data</h2>
+            <p class="text-sm text-slate-300 leading-relaxed" data-i18n="hero_sub">
+              Draft legally cited complaints in Bangla or English, track grievances end-to-end, audit public infrastructure BOQs against LGED/PWD schedules, and pin geospatial hazards with 100m duplicate clustering.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-3 shrink-0">
+            <button onclick="switchTab('assistant')" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-5 py-3 rounded-xl shadow-lg transition text-sm">
+              + Draft Legal Complaint
+            </button>
+            <button onclick="switchTab('boq')" class="bg-white/10 hover:bg-white/20 text-white font-semibold px-5 py-3 rounded-xl border border-white/20 transition text-sm">
+              Audit Public BOQ
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <span class="text-xs font-bold uppercase text-slate-500">Tracked Grievances</span>
+            <p id="kpiTotalComplaints" class="text-3xl font-extrabold text-slate-900 mt-2">0</p>
+            <p class="text-xs text-emerald-600 font-medium mt-1">CIVIC-2026 Registry</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <span class="text-xs font-bold uppercase text-slate-500">Resolved Cases</span>
+            <p id="kpiResolved" class="text-3xl font-extrabold text-slate-900 mt-2">0</p>
+            <p class="text-xs text-slate-500 mt-1">Verified Civic Closures</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <span class="text-xs font-bold uppercase text-slate-500">Geospatial Hazards</span>
+            <p id="kpiHazards" class="text-3xl font-extrabold text-slate-900 mt-2">0</p>
+            <p class="text-xs text-amber-700 font-medium mt-1">100m Proximity Clustered</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <span class="text-xs font-bold uppercase text-slate-500">Verified Citizens</span>
+            <p id="kpiUsers" class="text-3xl font-extrabold text-slate-900 mt-2">0</p>
+            <p class="text-xs text-blue-600 font-medium mt-1">NID / Smart Card Checked</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- MODULE 1: AI CITIZEN ASSISTANT                            -->
+      <!-- ========================================================= -->
+      <section id="tab-assistant" class="tab-section hidden space-y-6">
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md">9-Domain Bilingual NLU + Statutory RAG</span>
+            <h2 class="text-2xl font-extrabold text-slate-900 mt-2">AI Citizen Assistant & Formal Complaint Drafter</h2>
+            <p class="text-sm text-slate-600 mt-1">Describe your problem in plain Bangla or English. We identify the exact jurisdiction and draft an official complaint ready for submission or PDF print.</p>
+          </div>
+
+          <div class="space-y-3">
+            <textarea id="aiPrompt" rows="4" class="w-full rounded-xl border border-slate-300 p-4 text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none bg-slate-50/50" placeholder="Example: মিরপুর ১০ নম্বর গোলচত্বরের পাশে রাস্তার ম্যানহোলের ঢাকনা খোলা... OR A local pharmacy sold expired medicine above MRP..."></textarea>
+
+            <div class="flex flex-wrap items-center gap-2 pt-1">
+              <button onclick="analyzeIssue()" id="analyzeBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-2.5 rounded-xl shadow-sm transition">
+                ✨ Classify & Draft Formal Complaint
+              </button>
+              <button onclick="document.getElementById('aiPrompt').value='আমাদের এলাকায় নতুন রাস্তার কাজে নিম্নমানের ইট ব্যবহার করা হচ্ছে এবং ড্রেন বন্ধ হয়ে জলাবদ্ধতা তৈরি হয়েছে।'" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-3 py-1.5 rounded-lg">
+                🇧🇩 রাস্তা ও ড্রেনেজ সমস্যা
+              </button>
+              <button onclick="document.getElementById('aiPrompt').value='A local superstore charged 215 BDT for 1L soybean oil when the printed MRP on the bottle is 175 BDT.'" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-3 py-1.5 rounded-lg">
+                🛒 Consumer MRP Overcharge
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="aiResultCard" class="hidden bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-emerald-200 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
+            <h3 class="font-extrabold text-lg text-slate-900">Jurisdictional Classification & Statutory Draft</h3>
+            <span id="draftModeBadge" class="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800">Verified Statutory Mapping</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-emerald-50/80 p-4 rounded-xl border border-emerald-200/70">
+              <span class="text-[11px] font-bold uppercase text-emerald-700">1. Civic Domain</span>
+              <p id="resDomain" class="font-bold text-slate-900 mt-1 text-sm">—</p>
+            </div>
+            <div class="bg-blue-50/80 p-4 rounded-xl border border-blue-200/70">
+              <span class="text-[11px] font-bold uppercase text-blue-700">2. Responsible Authority</span>
+              <p id="resDept" class="font-bold text-slate-900 mt-1 text-sm">—</p>
+            </div>
+            <div class="bg-purple-50/80 p-4 rounded-xl border border-purple-200/70">
+              <span class="text-[11px] font-bold uppercase text-purple-700">3. Applicable Statutory Act</span>
+              <p id="resLaw" class="font-bold text-slate-900 mt-1 text-sm">—</p>
+            </div>
+          </div>
+
+          <div id="printableArea" class="space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <label class="text-xs font-bold uppercase text-slate-700">Editable Formal Application</label>
+              <div class="flex gap-2">
+                <button onclick="copyDraft()" class="text-xs bg-slate-800 text-white font-semibold px-3.5 py-1.5 rounded-lg">📋 Copy Text</button>
+                <button onclick="window.print()" class="text-xs bg-slate-200 text-slate-800 font-semibold px-3.5 py-1.5 rounded-lg">🖨️ Print / Save PDF</button>
+              </div>
+            </div>
+            <textarea id="resDraft" rows="10" class="w-full rounded-xl border border-slate-300 p-4 text-sm font-mono bg-slate-50 leading-relaxed"></textarea>
+          </div>
+
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row gap-3">
+            <input type="text" id="evidenceNote" placeholder="Evidence Vault Reference (e.g., Photo filename, Cash Memo #102)" class="flex-1 rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm bg-white" />
+            <button onclick="saveToTracker()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-5 py-2.5 rounded-lg shadow-sm">
+              Save & Generate CIVIC-2026 ID →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- MODULE 2: COMPLAINT MANAGEMENT                            -->
+      <!-- ========================================================= -->
+      <section id="tab-complaints" class="tab-section hidden space-y-6">
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-2xl font-extrabold text-slate-900">Complaint Management & Evidence Vault</h2>
+              <p class="text-sm text-slate-600">Internal CivicSphere IDs (<code class="bg-slate-100 px-1.5 py-0.5 rounded font-bold text-emerald-800">CIVIC-2026-XXXX</code>) separated from external GRS/ACC/DNCRP reference numbers.</p>
+            </div>
+            <button onclick="loadComplaints()" class="text-xs bg-slate-900 text-white font-bold px-4 py-2 rounded-lg">↻ Refresh Ledger</button>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr class="bg-slate-900 text-slate-200 uppercase text-[11px] tracking-wider">
+                  <th class="p-3.5">CivicSphere ID</th>
+                  <th class="p-3.5">Official Govt Ref</th>
+                  <th class="p-3.5">Domain & Authority</th>
+                  <th class="p-3.5">Evidence Vault</th>
+                  <th class="p-3.5">Workflow Stage</th>
+                  <th class="p-3.5">Update Stage</th>
+                </tr>
+              </thead>
+              <tbody id="complaintsTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- MODULE 3: PROJECT COST TRANSPARENCY (BOQ AUDIT)           -->
+      <!-- ========================================================= -->
+      <section id="tab-boq" class="tab-section hidden space-y-6">
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 class="text-2xl font-extrabold text-slate-900">Public Infrastructure BOQ Cost Transparency</h2>
+              <p class="text-sm text-slate-600 mt-1">Audits public works against official <strong>LGED / PWD Schedule of Rates</strong> with >20% variance alerts.</p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="loadBoqPreset('road')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-3 py-2 rounded-lg">Road Preset</button>
+              <button onclick="loadBoqPreset('culvert')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-3 py-2 rounded-lg">Culvert Preset</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Public Project Title</label>
+              <input id="boqProjectName" type="text" value="Upazila Connecting Road Rehabilitation" class="w-full rounded-lg border border-slate-300 p-2.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Benchmark Schedule</label>
+              <select id="boqAgency" class="w-full rounded-lg border border-slate-300 p-2.5 text-sm bg-white font-semibold">
+                <option value="LGED">LGED Schedule of Rates</option>
+                <option value="PWD">PWD Schedule of Rates</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Official Allocated Budget (BDT)</label>
+              <input id="boqBudget" type="number" value="2500000" class="w-full rounded-lg border border-slate-300 p-2.5 text-sm bg-white font-semibold" />
+            </div>
+          </div>
+
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-slate-800 text-sm">Bill of Quantities (BOQ) Items</h3>
+              <button onclick="addBoqRow()" class="text-xs bg-slate-900 text-white font-bold px-3.5 py-1.5 rounded-lg">+ Add BOQ Item</button>
+            </div>
+            <div id="boqRowsContainer" class="space-y-2.5"></div>
+          </div>
+
+          <button onclick="runBoqAudit()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-3 rounded-xl shadow-sm">
+            🔍 Run 5-Way Financial & Rate Audit
+          </button>
+        </div>
+
+        <div id="boqResultPanel" class="hidden bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+          <div id="boqAlertBanner" class="p-4 rounded-xl border font-bold text-sm"></div>
+
+          <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div class="p-4 bg-slate-50 rounded-xl border"><span class="text-[11px] text-slate-500 uppercase font-bold">1. Allocated Budget</span><p id="mAllocated" class="text-lg font-extrabold mt-1">৳0</p></div>
+            <div class="p-4 bg-emerald-50 rounded-xl border border-emerald-200"><span class="text-[11px] text-emerald-700 uppercase font-bold">2. LGED/PWD Benchmark</span><p id="mBenchmark" class="text-lg font-extrabold text-emerald-900 mt-1">৳0</p></div>
+            <div class="p-4 bg-blue-50 rounded-xl border border-blue-200"><span class="text-[11px] text-blue-700 uppercase font-bold">3. Quoted Total</span><p id="mQuoted" class="text-lg font-extrabold text-blue-900 mt-1">৳0</p></div>
+            <div class="p-4 bg-amber-50 rounded-xl border border-amber-200"><span class="text-[11px] text-amber-700 uppercase font-bold">4. Budget Variance</span><p id="mBudgetVar" class="text-lg font-extrabold text-amber-900 mt-1">0%</p></div>
+            <div class="p-4 bg-rose-50 rounded-xl border border-rose-200"><span class="text-[11px] text-rose-700 uppercase font-bold">5. Schedule Variance</span><p id="mSchedVar" class="text-lg font-extrabold text-rose-900 mt-1">0%</p></div>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr class="bg-slate-900 text-slate-200 text-xs uppercase">
+                  <th class="p-3">BOQ Item</th><th class="p-3">Quantity</th><th class="p-3">Official Rate</th><th class="p-3">Quoted Rate</th><th class="p-3">Variance %</th><th class="p-3">Audit Indicator</th>
+                </tr>
+              </thead>
+              <tbody id="boqAuditTable" class="divide-y divide-slate-200"></tbody>
+            </table>
+          </div>
+          <p id="boqDisclaimer" class="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border"></p>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- MODULE 4: GEOSPATIAL INFRASTRUCTURE MAP (100m CLUSTERING) -->
+      <!-- ========================================================= -->
+      <section id="tab-map" class="tab-section hidden space-y-6">
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-2xl font-extrabold text-slate-900">Geospatial Infrastructure Hazard Map</h2>
+              <p class="text-sm text-slate-600">Click anywhere on the map to select coordinates. Includes <strong>100-meter proximity duplicate detection</strong> & community upvoting.</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2">
+              <div id="map" class="border border-slate-300"></div>
+            </div>
+
+            <div class="space-y-4">
+              <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <h3 class="font-bold text-slate-900 text-sm">Pin Infrastructure Hazard</h3>
+                <input id="hazTitle" type="text" placeholder="Hazard title (e.g., Open Manhole)" class="w-full rounded-lg border border-slate-300 p-2.5 text-sm bg-white" />
+                <select id="hazCat" class="w-full rounded-lg border border-slate-300 p-2.5 text-sm bg-white">
+                  <option value="Road Damage">Road Damage / Pothole</option>
+                  <option value="Drainage Hazard">Drainage / Open Manhole</option>
+                  <option value="Waterlogging">Severe Waterlogging</option>
+                  <option value="Public Safety">Broken Streetlight / Exposed Wire</option>
+                </select>
+                <div class="grid grid-cols-2 gap-2">
+                  <input id="hazLat" type="number" step="any" value="23.8103" class="rounded-lg border border-slate-300 p-2 text-xs bg-white font-mono" />
+                  <input id="hazLng" type="number" step="any" value="90.4125" class="rounded-lg border border-slate-300 p-2 text-xs bg-white font-mono" />
+                </div>
+                <button onclick="submitHazard(false)" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-xl text-sm">
+                  📍 Submit Pin (Checks 100m Radius)
+                </button>
+              </div>
+
+              <div id="dupWarningBox" class="hidden bg-amber-50 border border-amber-300 p-4 rounded-xl space-y-2.5 text-xs">
+                <p class="font-extrabold text-amber-900">⚠️ Duplicate Hazard Within 100 Meters!</p>
+                <p id="dupDetails" class="text-amber-800"></p>
+                <div class="flex gap-2">
+                  <button id="dupUpvoteBtn" class="bg-amber-600 text-white px-3 py-1.5 rounded-lg font-bold">▲ Upvote Existing</button>
+                  <button onclick="submitHazard(true)" class="bg-slate-800 text-white px-3 py-1.5 rounded-lg font-semibold">Report Separately</button>
+                </div>
+              </div>
+
+              <div class="space-y-2 max-h-52 overflow-y-auto pr-1" id="hazardListContainer"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- MODULE 5: CONSUMER RIGHTS PROTECTION (DNCRP 16121)        -->
+      <!-- ========================================================= -->
+      <section id="tab-consumer" class="tab-section hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+            <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-md">Consumer Rights Protection Act, 2009</span>
+            <h2 class="text-2xl font-extrabold text-slate-900">MRP Overcharge & 25% Citizen Reward Calculator</h2>
+            <p class="text-sm text-slate-600">Under Section 76(4), a complainant receives <strong>25% of the realized fine</strong> imposed on the offender.</p>
+
+            <div class="space-y-3.5">
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Printed Maximum Retail Price (MRP in BDT)</label>
+                <input id="calcMrp" type="number" value="175" oninput="calculateConsumerReward()" class="w-full rounded-xl border border-slate-300 p-3 text-sm font-semibold" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Actual Price Charged (BDT)</label>
+                <input id="calcCharged" type="number" value="215" oninput="calculateConsumerReward()" class="w-full rounded-xl border border-slate-300 p-3 text-sm font-semibold" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Estimated DNCRP Fine (BDT)</label>
+                <input id="calcFine" type="number" value="10000" oninput="calculateConsumerReward()" class="w-full rounded-xl border border-slate-300 p-3 text-sm font-semibold" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 bg-slate-900 text-white p-5 rounded-2xl text-center">
+              <div><span class="text-[11px] text-slate-400 uppercase font-bold">Overcharge</span><p id="resOvercharge" class="text-xl font-extrabold text-rose-400 mt-1">৳40</p></div>
+              <div><span class="text-[11px] text-slate-400 uppercase font-bold">Markup %</span><p id="resOverchargePct" class="text-xl font-extrabold text-amber-400 mt-1">22.9%</p></div>
+              <div><span class="text-[11px] text-slate-400 uppercase font-bold">25% Reward</span><p id="resReward" class="text-xl font-extrabold text-emerald-400 mt-1">৳2,500</p></div>
+            </div>
+          </div>
+
+          <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+            <h3 class="text-xl font-extrabold text-slate-900">Statutory Filing Checklist (Helpline: 16121)</h3>
+            <div class="space-y-3 text-sm text-slate-700">
+              <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <p class="font-bold text-amber-900">⏱️ Strict 30-Day Filing Rule</p>
+                <p class="text-xs text-amber-800 mt-1">Complaints must be lodged with DNCRP within <strong>30 days</strong> of purchase/violation.</p>
+              </div>
+              <div class="p-4 bg-slate-50 border rounded-xl">
+                <p class="font-bold text-slate-900">🧾 Documentary Evidence</p>
+                <p class="text-xs text-slate-600 mt-1">Keep cash memo, digital payment receipt, and photo of the product's printed MRP.</p>
+              </div>
+            </div>
+            <a href="https://dncrp.gov.bd" target="_blank" class="inline-block bg-emerald-700 text-white text-sm font-bold px-5 py-3 rounded-xl">Open Official DNCRP Portal ↗</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- MODULE 6: ANTI-CORRUPTION & WHISTLEBLOWER GUIDANCE        -->
+      <!-- ========================================================= -->
+      <section id="tab-anticorruption" class="tab-section hidden space-y-6">
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
+            <div>
+              <h2 class="text-2xl font-extrabold text-slate-900">Confidential Anti-Corruption & Whistleblower Advisory</h2>
+              <p class="text-sm text-slate-600">Protected under the <strong>Public Interest Information Disclosure (Provide Protection) Act, 2011</strong>.</p>
+            </div>
+            <span class="bg-rose-700 text-white font-extrabold px-4 py-2.5 rounded-xl text-sm">ACC Hotline: 106 (Toll-Free)</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-5 text-sm">
+            <div class="p-5 rounded-2xl bg-slate-50 border space-y-2">
+              <h3 class="font-bold text-slate-900">1. Whistleblower Identity Shield</h3>
+              <p class="text-xs text-slate-600">Disclosing a whistleblower's identity without written consent is punishable under the 2011 Act.</p>
+            </div>
+            <div class="p-5 rounded-2xl bg-slate-50 border space-y-2">
+              <h3 class="font-bold text-slate-900">2. Safe Offline Evidence Storage</h3>
+              <p class="text-xs text-slate-600">Keep sensitive records on personal encrypted offline drives—never on shared office PCs.</p>
+            </div>
+            <div class="p-5 rounded-2xl bg-slate-50 border space-y-2">
+              <h3 class="font-bold text-slate-900">3. Reporting Bribery Demands</h3>
+              <p class="text-xs text-slate-600">Call <strong>106</strong> prior to paying speed money so ACC enforcement teams can arrange trap operations.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- MODULE 7: GOVERNMENT SERVICES DIRECTORY                   -->
+      <!-- ========================================================= -->
+      <section id="tab-directory" class="tab-section hidden space-y-6">
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-2xl font-extrabold text-slate-900">Verified Government Services Directory</h2>
+              <p class="text-sm text-slate-600">Official portals, required documents, fees (<strong>বিনামূল্যে / Free</strong>), and SLA timelines.</p>
+            </div>
+            <input id="dirSearch" oninput="filterDirectory()" type="text" placeholder="Search GRS, ACC, DNCRP, LGED..." class="rounded-xl border border-slate-300 px-4 py-2.5 text-sm w-full sm:w-72" />
+          </div>
+          <div id="directoryGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- MODULE 8: DEDICATED ADMIN CONSOLE & NID REGISTRY          -->
+      <!-- ========================================================= -->
+      <section id="tab-admin" class="tab-section hidden space-y-6">
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-amber-300 space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
+            <div>
+              <span class="bg-amber-100 text-amber-900 text-xs font-extrabold px-3 py-1 rounded-md uppercase">Restricted Admin Governance Interface</span>
+              <h2 class="text-2xl font-extrabold text-slate-900 mt-1">Admin Analytics, NID Citizen Registry & Audit Ledger</h2>
+            </div>
+            <button onclick="loadAdminAnalytics()" class="bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl">↻ Sync Admin Data</button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="p-5 border rounded-2xl bg-slate-50">
+              <h3 class="font-bold text-sm text-slate-800 mb-3">Complaint Resolution Pipeline</h3>
+              <canvas id="statusChart" height="190"></canvas>
+            </div>
+            <div class="p-5 border rounded-2xl bg-slate-50">
+              <h3 class="font-bold text-sm text-slate-800 mb-3">Grievance Distribution by Domain</h3>
+              <canvas id="domainChart" height="190"></canvas>
+            </div>
+          </div>
+
+          <!-- NID VERIFIED CITIZEN REGISTRY -->
+          <div>
+            <h3 class="font-extrabold text-slate-900 mb-2 text-sm">NID / Smart Card Verified Citizen Registry</h3>
+            <div class="overflow-x-auto border rounded-xl">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-emerald-950 text-emerald-100 uppercase">
+                  <tr>
+                    <th class="p-3">User ID</th><th class="p-3">Full Name</th><th class="p-3">Email</th><th class="p-3">Masked NID</th><th class="p-3">DOB</th><th class="p-3">Role</th><th class="p-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="adminUsersBody" class="divide-y bg-white"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- IMMUTABLE AUDIT LEDGER -->
+          <div>
+            <h3 class="font-extrabold text-slate-900 mb-2 text-sm">Immutable System & Verification Audit Trail</h3>
+            <div class="overflow-x-auto border rounded-xl">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-900 text-slate-200 uppercase">
+                  <tr>
+                    <th class="p-3">Event #</th><th class="p-3">Actor Role</th><th class="p-3">Recorded Action</th><th class="p-3">Target Ref</th><th class="p-3">Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody id="auditLogBody" class="divide-y bg-white"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    let currentUser = null;
+    let currentLang = "en";
+    let mapInstance = null;
+    let mapLayers = [];
+    let statusChartObj = null;
+    let domainChartObj = null;
+    let scheduleRates = {};
+
+    const GOVT_DIRECTORY = [
+      { name: "Central Grievance Redress System (GRS)", body: "Cabinet Division", fee: "বিনামূল্যে (Free)", timeline: "15–30 Working Days", docs: "NID Number, Mobile OTP, Incident Summary", url: "https://grs.gov.bd" },
+      { name: "Anti-Corruption Commission (ACC / দুদক)", body: "Independent Commission", fee: "বিনামূল্যে (Free)", timeline: "Immediate Helpline (106)", docs: "Bribe Demand Details, Audio/Video/Document Proof", url: "https://acc.org.bd" },
+      { name: "Directorate of National Consumer Rights Protection (DNCRP)", body: "Ministry of Commerce", fee: "বিনামূল্যে (Free)", timeline: "Within 30 Days of Purchase", docs: "Cash Memo/Receipt, Product MRP Photo, NID", url: "https://dncrp.gov.bd" },
+      { name: "Local Government Engineering Department (LGED)", body: "Local Government Division", fee: "বিনামূল্যে (Free)", timeline: "15–21 Working Days", docs: "Project Name/ID, Location Coordinates, Site Photos", url: "https://lged.gov.bd" },
+      { name: "Dhaka North & South City Corporations (DNCC / DSCC)", body: "Local Government Division", fee: "বিনামূল্যে (Free)", timeline: "7–14 Working Days", docs: "Ward Number, Road/Holding Info, Hazard Photo", url: "https://dncc.gov.bd" }
+    ];
+
+    function showToast(message, type = "success") {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      const bg = type === "error" ? "bg-rose-900 border-rose-700" : type === "warn" ? "bg-amber-900 border-amber-700" : "bg-slate-900 border-emerald-500";
+      toast.className = `${bg} text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl border pointer-events-auto`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3500);
+    }
+
+    // ==========================================
+    // AUTHENTICATION & NID VERIFICATION
+    // ==========================================
+    function setLoginRoleHint(type) {
+      toggleAuthMode('login');
+      const cBtn = document.getElementById('btnCitizenMode');
+      const aBtn = document.getElementById('btnAdminMode');
+      if (type === 'admin') {
+        aBtn.className = "py-2 rounded-lg bg-slate-900 text-amber-300 shadow-sm transition";
+        cBtn.className = "py-2 rounded-lg text-slate-500 hover:text-slate-900 transition";
+        document.getElementById('loginEmail').value = "admin@civicsphere.gov.bd";
+        document.getElementById('loginPassword').value = "admin123";
+      } else {
+        cBtn.className = "py-2 rounded-lg bg-white text-slate-900 shadow-sm transition";
+        aBtn.className = "py-2 rounded-lg text-slate-500 hover:text-slate-900 transition";
+        document.getElementById('loginEmail').value = "tanay@civicsphere.ai";
+        document.getElementById('loginPassword').value = "citizen123";
+      }
+    }
+
+    function toggleAuthMode(mode) {
+      if (mode === 'register') {
+        document.getElementById('loginForm').classList.add('hidden');
+        document.getElementById('registerForm').classList.remove('hidden');
+        document.getElementById('authModalTitle').textContent = "NID / Smart Card Registration";
+      } else {
+        document.getElementById('registerForm').classList.add('hidden');
+        document.getElementById('loginForm').classList.remove('hidden');
+        document.getElementById('authModalTitle').textContent = "CivicSphere AI Portal";
+      }
+    }
+
+    async function handleLogin() {
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (data.success) {
+        currentUser = data.user;
+        document.getElementById('authModal').classList.add('hidden');
+        document.getElementById('sidebarRoleLabel').textContent = `${currentUser.full_name} (${currentUser.role})`;
+        document.getElementById('sessionUserBadge').textContent = `✓ ${currentUser.role} | NID: ${currentUser.nid_masked}`;
+
+        const isAdmin = currentUser.role === 'Admin';
+        document.getElementById('adminNavDivider').classList.toggle('hidden', !isAdmin);
+        document.getElementById('mobileAdminOpt').classList.toggle('hidden', !isAdmin);
+
+        showToast(`Welcome, ${currentUser.full_name}!`);
+        loadAdminAnalytics();
+        if (isAdmin) switchTab('admin');
+      } else {
+        showToast(data.message, "error");
+      }
+    }
+
+    async function handleRegister() {
+      const payload = {
+        full_name: document.getElementById('regName').value,
+        email: document.getElementById('regEmail').value,
+        password: document.getElementById('regPassword').value,
+        nid_number: document.getElementById('regNid').value,
+        dob: document.getElementById('regDob').value
+      };
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message);
+        document.getElementById('loginEmail').value = payload.email;
+        document.getElementById('loginPassword').value = payload.password;
+        toggleAuthMode('login');
+      } else {
+        showToast(data.message, "error");
+      }
+    }
+
+    function logout() {
+      currentUser = null;
+      document.getElementById('authModal').classList.remove('hidden');
+      switchTab('overview');
+    }
+
+    // ==========================================
+    // NAVIGATION & BILINGUAL UI
+    // ==========================================
+    function switchTab(tabId) {
+      if (tabId === 'admin' && (!currentUser || currentUser.role !== 'Admin')) {
+        return showToast("Admin privileges required.", "error");
+      }
+      document.querySelectorAll('.tab-section').forEach(el => el.classList.add('hidden'));
+      document.getElementById('tab-' + tabId).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('nav-active'));
+      const activeBtn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
+      if (activeBtn) activeBtn.classList.add('nav-active');
+
+      if (tabId === 'overview' || tabId === 'admin') loadAdminAnalytics();
+      if (tabId === 'complaints') loadComplaints();
+      if (tabId === 'map') initMap();
+    }
+
+    function toggleLanguage() {
+      currentLang = currentLang === "en" ? "bn" : "en";
+      const dict = {
+        en: {
+          nav_overview: "Command Overview", nav_assistant: "AI Citizen Assistant", nav_complaints: "Complaint Management",
+          nav_boq: "Project Cost Audit (BOQ)", nav_map: "Geospatial Hazard Map", nav_consumer: "Consumer Rights (16121)",
+          nav_anticorruption: "Anti-Corruption (106)", nav_directory: "Govt Services Guide", nav_admin: "Admin Console & Audit"
+        },
+        bn: {
+          nav_overview: "ড্যাশবোর্ড ওভারভিউ", nav_assistant: "এআই নাগরিক সহায়ক", nav_complaints: "অভিযোগ ব্যবস্থাপনা",
+          nav_boq: "প্রকল্প ব্যয় অডিট (BOQ)", nav_map: "জিওস্পেশাল হ্যাজার্ড ম্যাপ", nav_consumer: "ভোক্তা অধিকার (১৬১২১)",
+          nav_anticorruption: "দুর্নীতি প্রতিরোধ (১০৬)", nav_directory: "সরকারি সেবা নির্দেশিকা", nav_admin: "অ্যাডমিন ও অডিট লগ"
+        }
+      };
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (dict[currentLang][key]) el.textContent = dict[currentLang][key];
+      });
+      showToast(currentLang === "bn" ? "ভাষা বাংলায় পরিবর্তন করা হয়েছে" : "Language switched to English");
+    }
+
+    // ==========================================
+    // MODULE 1: AI ASSISTANT
+    // ==========================================
+    async function analyzeIssue() {
+      const prompt = document.getElementById('aiPrompt').value.trim();
+      if (!prompt) return showToast("Please describe your civic issue.", "warn");
+      const res = await fetch('/api/assistant/analyze', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, lang: currentLang })
+      });
+      const data = await res.json();
+      document.getElementById('resDomain').textContent = data.domain;
+      document.getElementById('resDept').textContent = data.department;
+      document.getElementById('resLaw').textContent = data.law;
+      document.getElementById('resDraft').value = data.draft;
+      document.getElementById('aiResultCard').classList.remove('hidden');
+    }
+
+    function copyDraft() {
+      navigator.clipboard.writeText(document.getElementById('resDraft').value);
+      showToast("Copied to clipboard!");
+    }
+
+    async function saveToTracker() {
+      const res = await fetch('/api/complaints', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          citizen_nid: currentUser ? currentUser.nid_masked : "Verified",
+          domain: document.getElementById('resDomain').textContent,
+          department: document.getElementById('resDept').textContent,
+          description: document.getElementById('aiPrompt').value,
+          draft_text: document.getElementById('resDraft').value,
+          evidence_note: document.getElementById('evidenceNote').value || "No file attached"
+        })
+      });
+      const data = await res.json();
+      showToast(`Saved! Tracking ID: ${data.tracking_id}`);
+      switchTab('complaints');
+    }
+
+    // ==========================================
+    // MODULE 2: COMPLAINT MANAGEMENT
+    // ==========================================
+    async function loadComplaints() {
+      const res = await fetch('/api/complaints');
+      const list = await res.json();
+      const stages = ["Draft", "Ready", "Submitted", "In Progress", "Resolved"];
+      document.getElementById('complaintsTableBody').innerHTML = list.map(c => `
+        <tr class="hover:bg-slate-50">
+          <td class="p-3.5 font-mono font-extrabold text-slate-900">${c.tracking_id}</td>
+          <td class="p-3.5 text-xs font-bold text-slate-600">${c.external_ref}</td>
+          <td class="p-3.5"><div class="font-bold text-slate-900">${c.domain}</div><div class="text-xs text-slate-500">${c.department}</div></td>
+          <td class="p-3.5 text-xs text-slate-600">${c.evidence_note}</td>
+          <td class="p-3.5"><span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">${c.status}</span></td>
+          <td class="p-3.5">
+            <select onchange="updateStage('${c.tracking_id}', this.value)" class="border rounded-lg px-2.5 py-1 text-xs bg-white">
+              ${stages.map(s => `<option value="${s}" ${s === c.status ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function updateStage(trackingId, newStatus) {
+      let extRef = newStatus === 'Submitted' ? prompt("Enter official external ref (e.g., GRS-2026-9910):", "GRS-2026-9910") : null;
+      await fetch(`/api/complaints/${trackingId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-Role': currentUser ? currentUser.role : 'Citizen' },
+        body: JSON.stringify({ status: newStatus, external_ref: extRef })
+      });
+      showToast(`${trackingId} updated to ${newStatus}`);
+      loadComplaints();
+    }
+
+    // ==========================================
+    // MODULE 3: BOQ AUDIT
+    // ==========================================
+    async function initBoq() {
+      const res = await fetch('/api/boq/rates');
+      scheduleRates = await res.json();
+      loadBoqPreset('road');
+    }
+
+    function loadBoqPreset(type) {
+      document.getElementById('boqRowsContainer').innerHTML = "";
+      if (type === 'road') {
+        addBoqRow("bituminous_carpeting_sqm", 1500, 1250);
+        addBoqRow("brick_flat_soling_sqm", 800, 700);
+      } else {
+        addBoqRow("rcc_concrete_cum", 65, 11800);
+        addBoqRow("ms_rebar_kg", 6000, 128);
+      }
+    }
+
+    function addBoqRow(defaultCode = "earthwork_cum", defaultQty = 500, defaultRate = 330) {
+      const container = document.getElementById('boqRowsContainer');
+      const options = Object.entries(scheduleRates).map(([code, info]) =>
+        `<option value="${code}" ${code === defaultCode ? 'selected' : ''}>${info.name} [LGED: ৳${info.lged} | PWD: ৳${info.pwd}]</option>`
+      ).join('');
+      const row = document.createElement('div');
+      row.className = "boq-row grid grid-cols-1 md:grid-cols-12 gap-2 items-center bg-slate-50 p-3 rounded-xl border";
+      row.innerHTML = `
+        <select class="boq-code md:col-span-6 rounded-lg border p-2 text-xs bg-white">${options}</select>
+        <input type="number" class="boq-qty md:col-span-2 rounded-lg border p-2 text-xs bg-white" value="${defaultQty}" />
+        <input type="number" class="boq-rate md:col-span-3 rounded-lg border p-2 text-xs bg-white" value="${defaultRate}" />
+        <button onclick="this.parentElement.remove()" class="md:col-span-1 text-rose-600 font-bold text-xs">✕</button>
+      `;
+      container.appendChild(row);
+    }
+
+    async function runBoqAudit() {
+      const items = [];
+      document.querySelectorAll('.boq-row').forEach(r => {
+        items.push({
+          item_code: r.querySelector('.boq-code').value,
+          quantity: parseFloat(r.querySelector('.boq-qty').value) || 0,
+          quoted_unit_rate: parseFloat(r.querySelector('.boq-rate').value) || 0
+        });
+      });
+      const res = await fetch('/api/boq/audit', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actor_role: currentUser ? currentUser.role : "Citizen",
+          project_name: document.getElementById('boqProjectName').value,
+          agency: document.getElementById('boqAgency').value,
+          allocated_budget: parseFloat(document.getElementById('boqBudget').value) || 0,
+          items
+        })
+      });
+      const data = await res.json();
+      const banner = document.getElementById('boqAlertBanner');
+      banner.className = data.overall_alert ? "p-4 rounded-xl border border-rose-300 bg-rose-50 text-rose-900 font-bold text-sm" : "p-4 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-900 font-bold text-sm";
+      banner.textContent = data.overall_alert ? `🚨 VARIANCE ALERT: ${data.anomaly_count} item(s) exceed +20% ${data.agency} Schedule rate.` : `✅ WITHIN SCHEDULE TOLERANCE (${data.agency}).`;
+
+      document.getElementById('mAllocated').textContent = `৳${data.matrix.allocated_budget.toLocaleString()}`;
+      document.getElementById('mBenchmark').textContent = `৳${data.matrix.benchmark_schedule_cost.toLocaleString()}`;
+      document.getElementById('mQuoted').textContent = `৳${data.matrix.contractor_quoted_cost.toLocaleString()}`;
+      document.getElementById('mBudgetVar').textContent = `${data.matrix.budget_variance_pct}%`;
+      document.getElementById('mSchedVar').textContent = `${data.matrix.schedule_variance_pct}%`;
+      document.getElementById('boqDisclaimer').textContent = data.disclaimer;
+
+      document.getElementById('boqAuditTable').innerHTML = data.items.map(i => `
+        <tr>
+          <td class="p-3 font-semibold">${i.name}</td><td class="p-3">${i.quantity} ${i.unit}</td>
+          <td class="p-3">৳${i.standard_rate}</td><td class="p-3 font-bold">৳${i.quoted_rate}</td>
+          <td class="p-3 font-extrabold ${i.rate_variance_pct > 20 ? 'text-rose-600' : 'text-emerald-700'}">${i.rate_variance_pct}%</td>
+          <td class="p-3"><span class="px-2 py-0.5 rounded text-xs font-bold ${i.flag.includes('INFLATED') ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}">${i.flag}</span></td>
+        </tr>
+      `).join('');
+      document.getElementById('boqResultPanel').classList.remove('hidden');
+    }
+
+    // ==========================================
+    // MODULE 4: MAP
+    // ==========================================
+    function initMap() {
+      if (!mapInstance) {
+        mapInstance = L.map('map').setView([23.8103, 90.4125], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
+        mapInstance.on('click', e => {
+          document.getElementById('hazLat').value = e.latlng.lat.toFixed(6);
+          document.getElementById('hazLng').value = e.latlng.lng.toFixed(6);
+        });
+      }
+      setTimeout(() => mapInstance.invalidateSize(), 200);
+      loadHazards();
+    }
+
+    async function loadHazards() {
+      const res = await fetch('/api/hazards');
+      const list = await res.json();
+      mapLayers.forEach(m => mapInstance.removeLayer(m));
+      mapLayers = [];
+      document.getElementById('hazardListContainer').innerHTML = list.map(h => {
+        const marker = L.marker([h.lat, h.lng]).addTo(mapInstance).bindPopup(`<b>${h.title}</b><br>${h.category}<br>Upvotes: <b>${h.upvotes}</b>`);
+        const circle = L.circle([h.lat, h.lng], { radius: 100, color: '#059669', fillOpacity: 0.12, weight: 1 }).addTo(mapInstance);
+        mapLayers.push(marker, circle);
+        return `
+          <div class="p-3 bg-white border rounded-xl flex items-center justify-between text-xs">
+            <div><p class="font-bold">${h.title}</p><p class="text-slate-500">${h.category}</p></div>
+            <button onclick="upvoteHazard(${h.id})" class="bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold px-3 py-1 rounded-lg">▲ ${h.upvotes}</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function submitHazard(forceCreate) {
+      const res = await fetch('/api/hazards', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: document.getElementById('hazTitle').value.trim() || "Public Hazard",
+          category: document.getElementById('hazCat').value,
+          lat: parseFloat(document.getElementById('hazLat').value),
+          lng: parseFloat(document.getElementById('hazLng').value),
+          force_create: forceCreate
+        })
+      });
+      const data = await res.json();
+      if (data.duplicate_detected) {
+        const box = document.getElementById('dupWarningBox');
+        document.getElementById('dupDetails').textContent = `"${data.existing_hazard.title}" already exists ${data.distance_meters}m away.`;
+        document.getElementById('dupUpvoteBtn').onclick = () => { upvoteHazard(data.existing_hazard.id); box.classList.add('hidden'); };
+        box.classList.remove('hidden');
+      } else {
+        document.getElementById('dupWarningBox').classList.add('hidden');
+        loadHazards();
+      }
+    }
+
+    async function upvoteHazard(id) {
+      await fetch(`/api/hazards/${id}/upvote`, { method: 'POST' });
+      loadHazards();
+    }
+
+    // ==========================================
+    // MODULE 5 & 7: CONSUMER & DIRECTORY
+    // ==========================================
+    function calculateConsumerReward() {
+      const mrp = parseFloat(document.getElementById('calcMrp').value) || 0;
+      const charged = parseFloat(document.getElementById('calcCharged').value) || 0;
+      const fine = parseFloat(document.getElementById('calcFine').value) || 0;
+      const overcharge = Math.max(0, charged - mrp);
+      document.getElementById('resOvercharge').textContent = `৳${overcharge.toLocaleString()}`;
+      document.getElementById('resOverchargePct').textContent = `${mrp > 0 ? ((overcharge / mrp) * 100).toFixed(1) : 0}%`;
+      document.getElementById('resReward').textContent = `৳${(fine * 0.25).toLocaleString()}`;
+    }
+
+    function filterDirectory() {
+      const q = document.getElementById('dirSearch').value.toLowerCase();
+      const filtered = GOVT_DIRECTORY.filter(d => d.name.toLowerCase().includes(q) || d.body.toLowerCase().includes(q));
+      document.getElementById('directoryGrid').innerHTML = filtered.map(d => `
+        <div class="p-5 border rounded-2xl bg-slate-50 flex flex-col justify-between space-y-3">
+          <div>
+            <div class="flex justify-between gap-2"><h3 class="font-bold text-slate-900">${d.name}</h3><span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">${d.fee}</span></div>
+            <p class="text-xs text-slate-500 mt-1">${d.body} • Timeline: <strong>${d.timeline}</strong></p>
+            <p class="text-xs text-slate-700 mt-2"><strong>Docs:</strong> ${d.docs}</p>
+          </div>
+          <a href="${d.url}" target="_blank" class="text-xs font-extrabold text-emerald-700 hover:underline">Open Portal ↗</a>
+        </div>
+      `).join('');
+    }
+
+    // ==========================================
+    // MODULE 8: ADMIN ANALYTICS & NID REGISTRY
+    // ==========================================
+    async function loadAdminAnalytics() {
+      const res = await fetch('/api/admin/analytics');
+      const data = await res.json();
+
+      document.getElementById('kpiTotalComplaints').textContent = data.total_complaints;
+      document.getElementById('kpiResolved').textContent = data.resolved_complaints;
+      document.getElementById('kpiHazards').textContent = data.total_hazards;
+      document.getElementById('kpiUsers').textContent = data.total_users;
+
+      if (statusChartObj) statusChartObj.destroy();
+      statusChartObj = new Chart(document.getElementById('statusChart'), {
+        type: 'bar',
+        data: { labels: Object.keys(data.status_counts), datasets: [{ label: 'Complaints', data: Object.values(data.status_counts), backgroundColor: '#059669' }] }
+      });
+
+      if (domainChartObj) domainChartObj.destroy();
+      domainChartObj = new Chart(document.getElementById('domainChart'), {
+        type: 'doughnut',
+        data: { labels: Object.keys(data.domain_counts), datasets: [{ data: Object.values(data.domain_counts), backgroundColor: ['#059669', '#2563eb', '#d97706', '#dc2626'] }] }
+      });
+
+      document.getElementById('adminUsersBody').innerHTML = data.users.map(u => `
+        <tr>
+          <td class="p-3 font-mono">#${u.id}</td>
+          <td class="p-3 font-bold">${u.full_name}</td>
+          <td class="p-3">${u.email}</td>
+          <td class="p-3 font-mono">${u.nid_masked}</td>
+          <td class="p-3">${u.dob}</td>
+          <td class="p-3 font-bold">${u.role}</td>
+          <td class="p-3"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold">NID Verified</span></td>
+        </tr>
+      `).join('');
+
+      document.getElementById('auditLogBody').innerHTML = data.audit_logs.map(l => `
+        <tr>
+          <td class="p-3 font-mono">#${l.id}</td>
+          <td class="p-3 font-bold">${l.actor_role}</td>
+          <td class="p-3">${l.action}</td>
+          <td class="p-3 font-mono text-emerald-700">${l.target_id}</td>
+          <td class="p-3 text-slate-500">${l.timestamp}</td>
+        </tr>
+      `).join('');
+    }
+
+    window.onload = () => {
+      initBoq();
+      filterDirectory();
+      calculateConsumerReward();
+    };
+  </script>
+</body>
+</html>
