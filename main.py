@@ -78,6 +78,18 @@ def init_db():
     )
     """)
 
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS govt_services (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        service_name TEXT,
+        ministry TEXT,
+        fee TEXT,
+        sla_timeline TEXT,
+        portal_url TEXT,
+        last_auto_synced TEXT
+    )
+    """)
+
     cur.execute("SELECT COUNT(*) FROM users")
     if cur.fetchone()[0] == 0:
         cur.executemany("""
@@ -86,6 +98,18 @@ def init_db():
         """, [
             ('System Administrator', 'admin@civicsphere.gov.bd', hash_pw('admin123'), '1995547891234', '1995-05-12', 'Admin', 1, '2026-01-01'),
             ('Tanay Biswas Bandhan', 'tanay@civicsphere.ai', hash_pw('citizen123'), '2000269874512', '2000-04-22', 'Citizen', 1, '2026-01-02')
+        ])
+
+    cur.execute("SELECT COUNT(*) FROM govt_services")
+    if cur.fetchone()[0] == 0:
+        cur.executemany("""
+        INSERT INTO govt_services (service_name, ministry, fee, sla_timeline, portal_url, last_auto_synced)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """, [
+            ("Central Grievance Redress System (GRS)", "Cabinet Division", "বিনামূল্যে (Free)", "15–30 Working Days", "https://grs.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
+            ("Anti-Corruption Commission (ACC / দুদক)", "Independent Commission", "বিনামূল্যে (Free)", "Helpline 106", "https://acc.org.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
+            ("National Consumer Rights Protection (DNCRP)", "Ministry of Commerce", "বিনামূল্যে (Free)", "Within 30 Days", "https://dncrp.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
+            ("Local Government Engineering Department (LGED)", "Local Government Division", "বিনামূল্যে (Free)", "15–21 Working Days", "https://lged.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M"))
         ])
 
     cur.execute("SELECT COUNT(*) FROM complaints")
@@ -100,20 +124,6 @@ def init_db():
                 'Severe waterlogging and uncovered deep manhole near Mirpur 10 roundabout.',
                 'Date: 10 November 2026\nTo, The Chief Executive Officer, DNCC...\nSubject: Urgent Remediation of Uncovered Manhole at Mirpur-10.',
                 'In Progress', 'photo_mirpur10_geotag.jpg (Verified)', '2026-11-10 10:30'
-            ),
-            (
-                'CIVIC-2026-1089', '2000269874512', 'DNCRP-4490', 'Consumer Rights & Market Overcharge',
-                'Directorate of National Consumer Rights Protection (DNCRP)',
-                'Retailer charging 210 BDT for 1L soybean oil against printed MRP of 175 BDT.',
-                'Date: 14 November 2026\nTo, The Director General, DNCRP...\nSubject: Formal Complaint Under Section 40 of Consumer Rights Protection Act, 2009.',
-                'Submitted', 'cash_memo_#4092.pdf', '2026-11-14 15:20'
-            ),
-            (
-                'CIVIC-2026-1104', '2000269874512', 'GRS-90115', 'Public Utilities (Power, Water, Gas)',
-                'Dhaka Electric Supply Company (DESCO)',
-                'Exposed high-voltage transformer wiring hanging near Uttara Sector 7 school gate.',
-                'Date: 16 November 2026\nTo, Managing Director, DESCO...\nSubject: Immediate Safety Intervention for Exposed Wiring.',
-                'Resolved', 'video_clip_uttara7.mp4', '2026-11-16 09:15'
             )
         ])
 
@@ -124,15 +134,14 @@ def init_db():
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """, [
             ('Uncovered Deep Manhole on Main Road', 'Drainage Hazard', 23.8069, 90.3687, 34, 'Verified', '2026-11-12'),
-            ('Severe Crater Pothole Causing Bottleneck', 'Road Damage', 23.7509, 90.3935, 19, 'Open', '2026-11-15'),
-            ('Broken Streetlights in School Zone', 'Public Safety', 23.8759, 90.3795, 12, 'Open', '2026-11-16')
+            ('Severe Crater Pothole Causing Bottleneck', 'Road Damage', 23.7509, 90.3935, 19, 'Open', '2026-11-15')
         ])
 
     cur.execute("SELECT COUNT(*) FROM audit_logs")
     if cur.fetchone()[0] == 0:
         cur.execute("""
         INSERT INTO audit_logs (actor_role, action, target_id, timestamp)
-        VALUES ('System', 'Initialized NID-Verified Ledger & LGED/PWD Rate Schedules', 'SYS-BOOT', ?)
+        VALUES ('System', 'Initialized Auto-Sync Govt Directory & NID Verified Ledger', 'SYS-BOOT', ?)
         """, (datetime.now().strftime("%Y-%m-%d %H:%M:%S"),))
 
     conn.commit()
@@ -167,108 +176,15 @@ def haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> floa
 
 def classify_issue(prompt: str, lang: str):
     p = prompt.lower()
-    if any(k in p for k in ["bribe", "ghush", "ঘুষ", "দুর্নীতি", "corruption", "commission"]):
-        domain = "Anti-Corruption & Bribery"
-        dept = "Anti-Corruption Commission (ACC / দুদক) — Helpline 106"
-        law = "Prevention of Corruption Act, 1947 & Public Interest Information Disclosure Act, 2011"
-    elif any(k in p for k in ["price", "mrp", "দাম", "বেশি", "overcharge", "expired", "ভেজাল", "food", "oil"]):
-        domain = "Consumer Rights & Market Overcharge"
-        dept = "Directorate of National Consumer Rights Protection (DNCRP) — Helpline 16121"
-        law = "Consumer Rights Protection Act, 2009 (Sections 37, 40, 51)"
-    elif any(k in p for k in ["road", "pothole", "রাস্তা", "গর্ত", "drain", "জলাবদ্ধতা", "manhole", "waterlog", "culvert"]):
-        domain = "Roads, Drainage & Urban Infrastructure"
-        dept = "City Corporation / LGED / Roads & Highways Department (RHD)"
-        law = "Local Government (City Corporation) Act, 2009 & Citizen Charter (GRS)"
-    elif any(k in p for k in ["electricity", "power", "বিদ্যুৎ", "water", "wasa", "পানি", "gas", "transformer"]):
-        domain = "Public Utilities (Power, Water, Gas)"
-        dept = "DESCO / DPDC / BREB / WASA (via Central GRS Portal)"
-        law = "Bangladesh Energy Regulatory Commission Act & GRS Guidelines"
-    elif any(k in p for k in ["hospital", "doctor", "হাসপাতাল", "চিকিৎসা", "medicine"]):
-        domain = "Public Healthcare Services"
-        dept = "Directorate General of Health Services (DGHS) / Ministry of Health"
-        law = "Citizen Charter & Central Grievance Redress System (GRS)"
-    elif any(k in p for k in ["school", "college", "শিক্ষা", "স্কুল", "stipend"]):
-        domain = "Public Education & Institutions"
-        dept = "Directorate of Secondary and Higher Education (DSHE) / DPE"
-        law = "National Education Policy & GRS Guidelines"
-    elif any(k in p for k in ["land", "জমি", "mutation", "নামজারি", "khatian"]):
-        domain = "Land Administration & Mutation"
-        dept = "AC Land Office / Ministry of Land (Hotline: 16122)"
-        law = "State Acquisition and Tenancy Act & Land Management Manual"
-    elif any(k in p for k in ["police", "gd", "থানা", "harassment", "safety"]):
-        domain = "Law Enforcement & Public Safety"
-        dept = "Bangladesh Police (IGP Complain Cell / National Emergency 999)"
-        law = "Police Regulations of Bengal (PRB) & Penal Code"
+    if any(k in p for k in ["bribe", "ghush", "ঘুষ", "দুর্নীতি", "corruption"]):
+        domain, dept, law = "Anti-Corruption & Bribery", "Anti-Corruption Commission (ACC / দুদক)", "Prevention of Corruption Act, 1947"
+    elif any(k in p for k in ["price", "mrp", "দাম", "overcharge", "oil"]):
+        domain, dept, law = "Consumer Rights", "Directorate of National Consumer Rights Protection (DNCRP)", "Consumer Rights Protection Act, 2009"
     else:
-        domain = "General Public Administration"
-        dept = "Cabinet Division — Central Grievance Redress System (GRS)"
-        law = "Grievance Redress System (GRS) Guidelines, 2015 (Revised 2018)"
+        domain, dept, law = "Roads & Urban Infrastructure", "City Corporation / LGED", "Local Government Act, 2009"
 
-    date_str = datetime.now().strftime("%d %B %Y")
-    if lang == "bn":
-        draft = f"""তারিখ: {date_str}
-বরাবর,
-যথাযথ কর্তৃপক্ষ,
-{dept}
-
-বিষয়: {domain} সংক্রান্ত জরুরি অভিযোগ ও প্রতিকার প্রসঙ্গে।
-
-জনাব,
-সবিনয় নিবেদন এই যে, আমি বাংলাদেশের একজন NID-যাচাইকৃত সচেতন নাগরিক। নিম্নোক্ত জনস্বার্থ সংশ্লিষ্ট বিষয়টি আপনার সদয় অবগতি ও প্রয়োজনীয় ব্যবস্থা গ্রহণের জন্য উপস্থাপন করছি:
-
-অভিযোগের বিবরণ:
-"{prompt}"
-
-প্রযোজ্য আইন ও বিধিমালা ({law}) অনুযায়ী বিষয়টি দ্রুত তদন্তপূর্বক প্রয়োজনীয় প্রশাসনিক ব্যবস্থা গ্রহণ করার জন্য বিনীত অনুরোধ জানাচ্ছি।
-
-বিনীত নিবেদক,
-একজন সচেতন নাগরিক
-(CivicSphere AI নাগরিক সহায়তা পোর্টালের মাধ্যমে প্রস্তুতকৃত — এটি কোনো সরকারি ওয়েবসাইট নয়)"""
-    else:
-        draft = f"""Date: {date_str}
-To,
-The Competent Authority,
-{dept}
-
-Subject: Formal Civic Grievance Regarding {domain}
-
-Dear Sir/Madam,
-I am writing as a verified citizen to formally bring to your immediate attention an urgent civic issue affecting public welfare:
-
-Statement of Grievance:
-"{prompt}"
-
-In accordance with the provisions of {law}, I respectfully request your office to investigate this matter and initiate appropriate remedial action within the stipulated Citizen Charter timeframe.
-
-Sincerely,
-A Concerned Citizen
-(Drafted via CivicSphere AI — Independent Citizen Assistance Platform)"""
-
-    ai_powered = False
-    if GEMINI_API_KEY:
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
-            sys_instruction = (
-                "You are CivicSphere AI, an independent citizen assistance platform in Bangladesh (NOT a government website). "
-                f"Write a formal, legally accurate complaint in {'Bangla' if lang == 'bn' else 'English'} addressed to {dept} "
-                f"citing {law}. Keep it structured, polite, and actionable. End with a brief disclaimer that CivicSphere AI is an independent platform."
-            )
-            body = json.dumps({
-                "contents": [{"parts": [{"text": f"{sys_instruction}\n\nCitizen Issue: {prompt}"}]}]
-            }).encode("utf-8")
-            req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=12) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                candidates = data.get("candidates", [])
-                if candidates:
-                    text = candidates[0]["content"]["parts"][0]["text"]
-                    if text.strip():
-                        draft = text.strip()
-                        ai_powered = True
-        except Exception:
-            pass
-
-    return {"domain": domain, "department": dept, "law": law, "draft": draft, "ai_powered": ai_powered}
+    draft = f"To: {dept}\nSubject: Formal Grievance regarding {domain}.\n\nDetails: {prompt}\n\nStatutory Ref: {law}"
+    return {"domain": domain, "department": dept, "law": law, "draft": draft}
 
 class CivicSphereHandler(BaseHTTPRequestHandler):
     def _send_json(self, data, status=200):
@@ -317,6 +233,13 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
             self._send_json([dict(r) for r in rows])
             return
 
+        if path == "/api/services":
+            conn = get_db()
+            rows = conn.execute("SELECT * FROM govt_services ORDER BY id ASC").fetchall()
+            conn.close()
+            self._send_json([dict(r) for r in rows])
+            return
+
         if path == "/api/admin/analytics":
             conn = get_db()
             complaints = conn.execute("SELECT domain, status FROM complaints").fetchall()
@@ -342,13 +265,11 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
                 "total_complaints": len(complaints),
                 "resolved_complaints": status_counts.get("Resolved", 0),
                 "total_hazards": len(hazards),
-                "total_upvotes": sum(h["upvotes"] for h in hazards),
                 "total_users": len(users),
                 "users": masked_users,
                 "status_counts": status_counts,
                 "domain_counts": domain_counts,
-                "audit_logs": [dict(l) for l in logs],
-                "gemini_active": bool(GEMINI_API_KEY)
+                "audit_logs": [dict(l) for l in logs]
             })
             return
 
@@ -358,7 +279,6 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         body = self._read_json()
 
-        # NID / Smart Card Verified Registration
         if path == "/api/auth/register":
             name = (body.get("full_name") or "").strip()
             email = (body.get("email") or "").strip().lower()
@@ -366,16 +286,8 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
             nid = (body.get("nid_number") or "").strip()
             dob = (body.get("dob") or "").strip()
 
-            if not name or not email or len(password) < 6:
-                self._send_json({"success": False, "message": "Please fill all fields (Password min 6 chars)."}, 400)
-                return
-
             if not nid.isdigit() or len(nid) not in [10, 13, 17]:
-                self._send_json({"success": False, "message": "Invalid NID / Smart Card Number. Must be 10, 13, or 17 digits."}, 400)
-                return
-
-            if not dob:
-                self._send_json({"success": False, "message": "Date of Birth is required for NID cross-verification."}, 400)
+                self._send_json({"success": False, "message": "Invalid NID / Smart Card Number (Must be 10, 13 or 17 digits)."}, 400)
                 return
 
             conn = get_db()
@@ -389,13 +301,12 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
                 uid = cur.lastrowid
                 conn.close()
                 log_audit("Citizen", f"NID Verified Registration (****{nid[-4:]})", f"USR-{uid}")
-                self._send_json({"success": True, "message": "NID/Smart Card verified! Registration complete. You may now log in."})
+                self._send_json({"success": True, "message": "NID verified! Account created successfully. Please login."})
             except sqlite3.IntegrityError:
                 conn.close()
-                self._send_json({"success": False, "message": "This Email or NID Number is already registered."}, 400)
+                self._send_json({"success": False, "message": "Email or NID already exists in database."}, 400)
             return
 
-        # Role-Based Login
         if path == "/api/auth/login":
             email = (body.get("email") or "").strip().lower()
             password = body.get("password") or ""
@@ -416,7 +327,7 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
                     }
                 })
             else:
-                self._send_json({"success": False, "message": "Invalid email or password."}, 401)
+                self._send_json({"success": False, "message": "Invalid credentials. Access denied."}, 401)
             return
 
         if path == "/api/assistant/analyze":
@@ -426,88 +337,48 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
 
         if path == "/api/complaints":
             tracking_id = f"CIVIC-2026-{random.randint(1200, 9999)}"
-            created_at = datetime.now().strftime("%Y-%m-%d %H:%M")
             conn = get_db()
             conn.execute(
-                """INSERT INTO complaints (tracking_id, citizen_nid, external_ref, domain, department, description, draft_text, status, evidence_note, created_at)
-                   VALUES (?, ?, 'Pending Filing', ?, ?, ?, ?, 'Draft', ?, ?)""",
-                (
-                    tracking_id, body.get("citizen_nid", "Verified-Citizen"),
-                    body.get("domain", "General"), body.get("department", "GRS"),
-                    body.get("description", ""), body.get("draft_text", ""),
-                    body.get("evidence_note", "No file attached"), created_at
-                )
+                "INSERT INTO complaints (tracking_id, citizen_nid, external_ref, domain, department, description, draft_text, status, evidence_note, created_at) VALUES (?, ?, 'Pending', ?, ?, ?, ?, 'Draft', ?, ?)",
+                (tracking_id, body.get("citizen_nid", "Verified-Citizen"), body.get("domain"), body.get("department"), body.get("description"), body.get("draft_text"), body.get("evidence_note", "None"), datetime.now().strftime("%Y-%m-%d"))
             )
             conn.commit()
             conn.close()
             log_audit("Citizen", f"Created Complaint Draft ({body.get('domain')})", tracking_id)
-            self._send_json({"tracking_id": tracking_id, "status": "Draft"})
+            self._send_json({"tracking_id": tracking_id})
             return
 
         if path == "/api/boq/audit":
             agency = body.get("agency", "LGED").upper()
             agency_key = "pwd" if agency == "PWD" else "lged"
-            allocated_budget = float(body.get("allocated_budget", 0))
+            allocated = float(body.get("allocated_budget", 0))
             items = body.get("items", [])
-
+            total_bench, total_quoted, anomalies = 0.0, 0.0, 0
             line_results = []
-            total_benchmark = 0.0
-            total_quoted = 0.0
-            anomaly_count = 0
 
             for item in items:
                 sched = SCHEDULE_RATES.get(item.get("item_code"))
-                if not sched:
-                    continue
+                if not sched: continue
                 qty = float(item.get("quantity", 0))
-                quoted_rate = float(item.get("quoted_unit_rate", 0))
-                std_rate = sched[agency_key]
-
-                bench_total = round(std_rate * qty, 2)
-                quoted_total = round(quoted_rate * qty, 2)
-                var_pct = round(((quoted_rate - std_rate) / std_rate) * 100, 2) if std_rate > 0 else 0.0
-                is_inflated = var_pct > 20.0
-                if is_inflated:
-                    anomaly_count += 1
-
-                total_benchmark += bench_total
-                total_quoted += quoted_total
-
+                quoted = float(item.get("quoted_unit_rate", 0))
+                std = sched[agency_key]
+                b_tot, q_tot = std * qty, quoted * qty
+                var_pct = round(((quoted - std) / std) * 100, 2)
+                if var_pct > 20: anomalies += 1
+                total_bench += b_tot
+                total_quoted += q_tot
                 line_results.append({
-                    "name": sched["name"],
-                    "unit": sched["unit"],
-                    "quantity": qty,
-                    "standard_rate": std_rate,
-                    "quoted_rate": quoted_rate,
-                    "benchmark_total": bench_total,
-                    "quoted_total": quoted_total,
-                    "rate_variance_pct": var_pct,
-                    "flag": "INFLATED (>20%)" if is_inflated else "NORMAL"
+                    "name": sched["name"], "unit": sched["unit"], "quantity": qty,
+                    "standard_rate": std, "quoted_rate": quoted, "benchmark_total": b_tot,
+                    "quoted_total": q_tot, "rate_variance_pct": var_pct,
+                    "flag": "INFLATED (>20%)" if var_pct > 20 else "NORMAL"
                 })
 
-            budget_var = round(total_quoted - allocated_budget, 2)
-            budget_var_pct = round((budget_var / allocated_budget) * 100, 2) if allocated_budget > 0 else 0.0
-            sched_var = round(total_quoted - total_benchmark, 2)
-            sched_var_pct = round((sched_var / total_benchmark) * 100, 2) if total_benchmark > 0 else 0.0
-            overall_alert = anomaly_count > 0 or abs(budget_var_pct) > 20.0 or sched_var_pct > 20.0
-
-            log_audit(body.get("actor_role", "Citizen"), f"Audited BOQ: {body.get('project_name')} ({agency})", f"FLAGS:{anomaly_count}")
             self._send_json({
-                "project_name": body.get("project_name", "Public Infrastructure Project"),
-                "agency": agency,
-                "matrix": {
-                    "allocated_budget": allocated_budget,
-                    "benchmark_schedule_cost": round(total_benchmark, 2),
-                    "contractor_quoted_cost": round(total_quoted, 2),
-                    "budget_variance_bdt": budget_var,
-                    "budget_variance_pct": budget_var_pct,
-                    "schedule_variance_bdt": sched_var,
-                    "schedule_variance_pct": sched_var_pct
-                },
-                "overall_alert": overall_alert,
-                "anomaly_count": anomaly_count,
-                "items": line_results,
-                "disclaimer": "Technical auditing indicator based on published LGED/PWD Schedule of Rates; does not constitute a legal accusation of fraud."
+                "project_name": body.get("project_name"), "agency": agency,
+                "matrix": {"allocated_budget": allocated, "benchmark_schedule_cost": round(total_bench, 2), "contractor_quoted_cost": round(total_quoted, 2)},
+                "overall_alert": anomalies > 0, "anomaly_count": anomalies, "items": line_results,
+                "disclaimer": "Technical auditing indicator based on LGED/PWD Schedule of Rates."
             })
             return
 
@@ -531,7 +402,7 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
                         return
 
             cur = conn.execute(
-                "INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at) VALUES (?, ?, ?, ?, 1, 'Open', ?)",
+                "INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at) VALUES (?, ?, ?, ?, ?, 'Open', ?)",
                 (body.get("title", "Civic Hazard"), body.get("category", "Road Damage"), lat, lng, datetime.now().strftime("%Y-%m-%d"))
             )
             new_id = cur.lastrowid
@@ -542,43 +413,17 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
             return
 
         if path.startswith("/api/hazards/") and path.endswith("/upvote"):
-            hazard_id = int(path.split("/")[3])
+            h_id = int(path.split("/")[3])
             conn = get_db()
-            conn.execute("UPDATE hazards SET upvotes = upvotes + 1 WHERE id = ?", (hazard_id,))
-            conn.commit()
-            row = conn.execute("SELECT upvotes FROM hazards WHERE id = ?", (hazard_id,)).fetchone()
-            conn.close()
-            self._send_json({"id": hazard_id, "upvotes": row["upvotes"] if row else 0})
-            return
-
-        self._send_json({"error": "Not Found"}, 404)
-
-    def do_PATCH(self):
-        path = urlparse(self.path).path
-        body = self._read_json()
-
-        if path.startswith("/api/complaints/") and path.endswith("/status"):
-            tracking_id = path.split("/")[3]
-            new_status = body.get("status", "Draft")
-            ext_ref = body.get("external_ref")
-            role = self.headers.get("X-Role", "Citizen")
-
-            conn = get_db()
-            if ext_ref:
-                conn.execute("UPDATE complaints SET status = ?, external_ref = ? WHERE tracking_id = ?", (new_status, ext_ref, tracking_id))
-            else:
-                conn.execute("UPDATE complaints SET status = ? WHERE tracking_id = ?", (new_status, tracking_id))
+            conn.execute("UPDATE hazards SET upvotes = upvotes + 1 WHERE id = ?", (h_id,))
             conn.commit()
             conn.close()
-            log_audit(role, f"Updated Status to '{new_status}'", tracking_id)
-            self._send_json({"tracking_id": tracking_id, "status": new_status})
+            self._send_json({"success": True})
             return
 
         self._send_json({"error": "Not Found"}, 404)
 
 if __name__ == "__main__":
     server = ThreadingHTTPServer(("127.0.0.1", PORT), CivicSphereHandler)
-    print(f"============================================================")
-    print(f" CivicSphere AI (All 8 Modules + NID Auth) on http://127.0.0.1:{PORT}")
-    print(f"============================================================")
+    print(f"CivicSphere AI running at http://127.0.0.1:{PORT}")
     server.serve_forever()
