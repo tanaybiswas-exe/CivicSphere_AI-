@@ -200,17 +200,22 @@ def register(req: RegReq):
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, 'Citizen', 1, %s)",
-                    (req.full_name.strip(), req.email.strip().lower(), hash_pw(req.password), nid, req.dob.strip(), datetime.now().strftime("%Y-%m-%d")))
+        cur.execute("""
+            INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) 
+            VALUES (%s, %s, %s, %s, %s, 'Citizen', 1, %s)
+            RETURNING id
+        """, (req.full_name.strip(), req.email.strip().lower(), hash_pw(req.password), nid, req.dob.strip(), datetime.now().strftime("%Y-%m-%d")))
+        
+        uid = cur.fetchone()['id']
         conn.commit()
-        cur.execute("SELECT LASTVAL()")
-        uid = cur.fetchone()['lastval']
         cur.close()
         conn.close()
+        
         log_audit("Citizen", f"NID Verified Registration (****{nid[-4:]})", f"USR-{uid}")
         return {"success": True, "message": "NID verified! Account created successfully. Please login."}
-    except Exception:
-        raise HTTPException(status_code=400, detail="Email or NID already exists in database.")
+    except Exception as e:
+        print("Register Error:", e)
+        raise HTTPException(status_code=400, detail="Email or NID already exists in database, or invalid data.")
 
 class AnalyzeReq(BaseModel):
     prompt: str
