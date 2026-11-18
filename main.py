@@ -2,150 +2,152 @@ import os
 import json
 import math
 import hashlib
-import sqlite3
 import random
 import urllib.request
 from datetime import datetime
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
 
+# Load environment variables (.env)
+load_dotenv()
+
+# Supabase / PostgreSQL Connection String provided by user
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:YOUR-DATABASE-PASSWORD@db.untivcmmzadwcjgjavcv.supabase.co:5432/postgres?sslmode=require").strip()
 PORT = 8000
-DB_PATH = "civicsphere.db"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
 def hash_pw(pw: str) -> str:
     return hashlib.sha256(pw.encode("utf-8")).hexdigest()
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     return conn
 
 def init_db():
-    conn = get_db()
-    cur = conn.cursor()
+    try:
+        conn = get_db()
+        cur = conn.cursor()
 
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        full_name TEXT,
-        email TEXT UNIQUE,
-        password_hash TEXT,
-        nid_number TEXT UNIQUE,
-        dob TEXT,
-        role TEXT DEFAULT 'Citizen',
-        is_verified INTEGER DEFAULT 1,
-        created_at TEXT
-    )
-    """)
-
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS complaints (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tracking_id TEXT UNIQUE,
-        citizen_nid TEXT,
-        external_ref TEXT,
-        domain TEXT,
-        department TEXT,
-        description TEXT,
-        draft_text TEXT,
-        status TEXT DEFAULT 'Draft',
-        evidence_note TEXT,
-        created_at TEXT
-    )
-    """)
-
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS hazards (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT,
-        category TEXT,
-        lat REAL,
-        lng REAL,
-        upvotes INTEGER DEFAULT 1,
-        status TEXT DEFAULT 'Open',
-        created_at TEXT
-    )
-    """)
-
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS audit_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        actor_role TEXT,
-        action TEXT,
-        target_id TEXT,
-        timestamp TEXT
-    )
-    """)
-
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS govt_services (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        service_name TEXT,
-        ministry TEXT,
-        fee TEXT,
-        sla_timeline TEXT,
-        portal_url TEXT,
-        last_auto_synced TEXT
-    )
-    """)
-
-    cur.execute("SELECT COUNT(*) FROM users")
-    if cur.fetchone()[0] == 0:
-        cur.executemany("""
-        INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, [
-            ('System Administrator', 'admin@civicsphere.gov.bd', hash_pw('admin123'), '1995547891234', '1995-05-12', 'Admin', 1, '2026-01-01'),
-            ('Tanay Biswas Bandhan', 'tanay@civicsphere.ai', hash_pw('citizen123'), '2000269874512', '2000-04-22', 'Citizen', 1, '2026-01-02')
-        ])
-
-    cur.execute("SELECT COUNT(*) FROM govt_services")
-    if cur.fetchone()[0] == 0:
-        cur.executemany("""
-        INSERT INTO govt_services (service_name, ministry, fee, sla_timeline, portal_url, last_auto_synced)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """, [
-            ("Central Grievance Redress System (GRS)", "Cabinet Division", "বিনামূল্যে (Free)", "15–30 Working Days", "https://grs.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
-            ("Anti-Corruption Commission (ACC / দুদক)", "Independent Commission", "বিনামূল্যে (Free)", "Helpline 106", "https://acc.org.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
-            ("National Consumer Rights Protection (DNCRP)", "Ministry of Commerce", "বিনামূল্যে (Free)", "Within 30 Days", "https://dncrp.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
-            ("Local Government Engineering Department (LGED)", "Local Government Division", "বিনামূল্যে (Free)", "15–21 Working Days", "https://lged.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M"))
-        ])
-
-    cur.execute("SELECT COUNT(*) FROM complaints")
-    if cur.fetchone()[0] == 0:
-        cur.executemany("""
-        INSERT INTO complaints (tracking_id, citizen_nid, external_ref, domain, department, description, draft_text, status, evidence_note, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, [
-            (
-                'CIVIC-2026-1042', '2000269874512', 'GRS-88412', 'Roads, Drainage & Urban Infrastructure',
-                'Dhaka North City Corporation (DNCC)',
-                'Severe waterlogging and uncovered deep manhole near Mirpur 10 roundabout.',
-                'Date: 10 November 2026\nTo, The Chief Executive Officer, DNCC...\nSubject: Urgent Remediation of Uncovered Manhole at Mirpur-10.',
-                'In Progress', 'photo_mirpur10_geotag.jpg (Verified)', '2026-11-10 10:30'
-            )
-        ])
-
-    cur.execute("SELECT COUNT(*) FROM hazards")
-    if cur.fetchone()[0] == 0:
-        cur.executemany("""
-        INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, [
-            ('Uncovered Deep Manhole on Main Road', 'Drainage Hazard', 23.8069, 90.3687, 34, 'Verified', '2026-11-12'),
-            ('Severe Crater Pothole Causing Bottleneck', 'Road Damage', 23.7509, 90.3935, 19, 'Open', '2026-11-15')
-        ])
-
-    cur.execute("SELECT COUNT(*) FROM audit_logs")
-    if cur.fetchone()[0] == 0:
         cur.execute("""
-        INSERT INTO audit_logs (actor_role, action, target_id, timestamp)
-        VALUES ('System', 'Initialized Auto-Sync Govt Directory & NID Verified Ledger', 'SYS-BOOT', ?)
-        """, (datetime.now().strftime("%Y-%m-%d %H:%M:%S"),))
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            full_name TEXT,
+            email TEXT UNIQUE,
+            password_hash TEXT,
+            nid_number TEXT UNIQUE,
+            dob TEXT,
+            role TEXT DEFAULT 'Citizen',
+            is_verified INTEGER DEFAULT 1,
+            created_at TEXT
+        )
+        """)
 
-    conn.commit()
-    conn.close()
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS complaints (
+            id SERIAL PRIMARY KEY,
+            tracking_id TEXT UNIQUE,
+            citizen_nid TEXT,
+            external_ref TEXT,
+            domain TEXT,
+            department TEXT,
+            description TEXT,
+            draft_text TEXT,
+            status TEXT DEFAULT 'Draft',
+            evidence_note TEXT,
+            created_at TEXT
+        )
+        """)
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS hazards (
+            id SERIAL PRIMARY KEY,
+            title TEXT,
+            category TEXT,
+            lat REAL,
+            lng REAL,
+            upvotes INTEGER DEFAULT 1,
+            status TEXT DEFAULT 'Open',
+            created_at TEXT
+        )
+        """)
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id SERIAL PRIMARY KEY,
+            actor_role TEXT,
+            action TEXT,
+            target_id TEXT,
+            timestamp TEXT
+        )
+        """)
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS govt_services (
+            id SERIAL PRIMARY KEY,
+            service_name TEXT,
+            ministry TEXT,
+            fee TEXT,
+            sla_timeline TEXT,
+            portal_url TEXT,
+            last_auto_synced TEXT
+        )
+        """)
+
+        cur.execute("SELECT COUNT(*) FROM users")
+        if cur.fetchone()['count'] == 0:
+            cur.execute("""
+            INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, ('System Administrator', 'admin@civicsphere.gov.bd', hash_pw('admin123'), '1995547891234', '1995-05-12', 'Admin', 1, '2026-01-01'))
+            cur.execute("""
+            INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, ('Tanay Biswas Bandhan', 'tanay@civicsphere.ai', hash_pw('citizen123'), '2000269874512', '2000-04-22', 'Citizen', 1, '2026-01-02'))
+
+        cur.execute("SELECT COUNT(*) FROM govt_services")
+        if cur.fetchone()['count'] == 0:
+            services = [
+                ("Central Grievance Redress System (GRS)", "Cabinet Division", "বিনামূল্যে (Free)", "15–30 Working Days", "https://grs.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
+                ("Anti-Corruption Commission (ACC / দুদক)", "Independent Commission", "বিনামূল্যে (Free)", "Helpline 106", "https://acc.org.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
+                ("National Consumer Rights Protection (DNCRP)", "Ministry of Commerce", "বিনামূল্যে (Free)", "Within 30 Days", "https://dncrp.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
+                ("Local Government Engineering Department (LGED)", "Local Government Division", "বিনামূল্যে (Free)", "15–21 Working Days", "https://lged.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M"))
+            ]
+            for s in services:
+                cur.execute("""
+                INSERT INTO govt_services (service_name, ministry, fee, sla_timeline, portal_url, last_auto_synced)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """, s)
+
+        cur.execute("SELECT COUNT(*) FROM complaints")
+        if cur.fetchone()['count'] == 0:
+            cur.execute("""
+            INSERT INTO complaints (tracking_id, citizen_nid, external_ref, domain, department, description, draft_text, status, evidence_note, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, ('CIVIC-2026-1042', '2000269874512', 'GRS-88412', 'Roads, Drainage & Urban Infrastructure', 'Dhaka North City Corporation (DNCC)', 'Severe waterlogging and uncovered deep manhole near Mirpur 10 roundabout.', 'Date: 10 November 2026\nTo, The Chief Executive Officer, DNCC...\nSubject: Urgent Remediation of Uncovered Manhole.', 'In Progress', 'photo_mirpur10.jpg', '2026-11-10 10:30'))
+
+        cur.execute("SELECT COUNT(*) FROM hazards")
+        if cur.fetchone()['count'] == 0:
+            cur.execute("""
+            INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, ('Uncovered Deep Manhole on Main Road', 'Drainage Hazard', 23.8069, 90.3687, 34, 'Verified', '2026-11-12'))
+
+        cur.execute("SELECT COUNT(*) FROM audit_logs")
+        if cur.fetchone()['count'] == 0:
+            cur.execute("""
+            INSERT INTO audit_logs (actor_role, action, target_id, timestamp)
+            VALUES (%s, %s, %s, %s)
+            """, ('System', 'Initialized Supabase PostgreSQL DB & NID Ledger', 'SYS-BOOT', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Supabase Database initialized successfully.")
+    except Exception as e:
+        print("Database initialization error (Check connection string):", e)
 
 init_db()
 
@@ -158,13 +160,18 @@ SCHEDULE_RATES = {
 }
 
 def log_audit(role: str, action: str, target_id: str):
-    conn = get_db()
-    conn.execute(
-        "INSERT INTO audit_logs (actor_role, action, target_id, timestamp) VALUES (?, ?, ?, ?)",
-        (role, action, target_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    )
-    conn.commit()
-    conn.close()
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO audit_logs (actor_role, action, target_id, timestamp) VALUES (%s, %s, %s, %s)",
+            (role, action, target_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
 
 def haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R = 6371000.0
@@ -217,7 +224,10 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
 
         if path == "/api/complaints":
             conn = get_db()
-            rows = conn.execute("SELECT * FROM complaints ORDER BY id DESC").fetchall()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM complaints ORDER BY id DESC")
+            rows = cur.fetchall()
+            cur.close()
             conn.close()
             self._send_json([dict(r) for r in rows])
             return
@@ -228,24 +238,36 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
 
         if path == "/api/hazards":
             conn = get_db()
-            rows = conn.execute("SELECT * FROM hazards ORDER BY upvotes DESC").fetchall()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM hazards ORDER BY upvotes DESC")
+            rows = cur.fetchall()
+            cur.close()
             conn.close()
             self._send_json([dict(r) for r in rows])
             return
 
         if path == "/api/services":
             conn = get_db()
-            rows = conn.execute("SELECT * FROM govt_services ORDER BY id ASC").fetchall()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM govt_services ORDER BY id ASC")
+            rows = cur.fetchall()
+            cur.close()
             conn.close()
             self._send_json([dict(r) for r in rows])
             return
 
         if path == "/api/admin/analytics":
             conn = get_db()
-            complaints = conn.execute("SELECT domain, status FROM complaints").fetchall()
-            hazards = conn.execute("SELECT category, upvotes, status FROM hazards").fetchall()
-            users = conn.execute("SELECT id, full_name, email, nid_number, dob, role, is_verified, created_at FROM users ORDER BY id DESC").fetchall()
-            logs = conn.execute("SELECT * FROM audit_logs ORDER BY id DESC LIMIT 25").fetchall()
+            cur = conn.cursor()
+            cur.execute("SELECT domain, status FROM complaints")
+            complaints = cur.fetchall()
+            cur.execute("SELECT category, upvotes, status FROM hazards")
+            hazards = cur.fetchall()
+            cur.execute("SELECT id, full_name, email, nid_number, dob, role, is_verified, created_at FROM users ORDER BY id DESC")
+            users = cur.fetchall()
+            cur.execute("SELECT * FROM audit_logs ORDER BY id DESC LIMIT 25")
+            logs = cur.fetchall()
+            cur.close()
             conn.close()
 
             status_counts = {"Draft": 0, "Ready": 0, "Submitted": 0, "In Progress": 0, "Resolved": 0}
@@ -290,20 +312,21 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
                 self._send_json({"success": False, "message": "Invalid NID / Smart Card Number (Must be 10, 13 or 17 digits)."}, 400)
                 return
 
-            conn = get_db()
             try:
+                conn = get_db()
                 cur = conn.cursor()
                 cur.execute(
-                    "INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (?, ?, ?, ?, ?, 'Citizen', 1, ?)",
+                    "INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, 'Citizen', 1, %s)",
                     (name, email, hash_pw(password), nid, dob, datetime.now().strftime("%Y-%m-%d"))
                 )
                 conn.commit()
-                uid = cur.lastrowid
+                cur.execute("SELECT LASTVAL()")
+                uid = cur.fetchone()['lastval']
+                cur.close()
                 conn.close()
                 log_audit("Citizen", f"NID Verified Registration (****{nid[-4:]})", f"USR-{uid}")
                 self._send_json({"success": True, "message": "NID verified! Account created successfully. Please login."})
-            except sqlite3.IntegrityError:
-                conn.close()
+            except Exception as e:
                 self._send_json({"success": False, "message": "Email or NID already exists in database."}, 400)
             return
 
@@ -311,7 +334,10 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
             email = (body.get("email") or "").strip().lower()
             password = body.get("password") or ""
             conn = get_db()
-            user = conn.execute("SELECT * FROM users WHERE email = ? AND password_hash = ?", (email, hash_pw(password))).fetchone()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM users WHERE email = %s AND password_hash = %s", (email, hash_pw(password)))
+            user = cur.fetchone()
+            cur.close()
             conn.close()
 
             if user:
@@ -338,11 +364,13 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
         if path == "/api/complaints":
             tracking_id = f"CIVIC-2026-{random.randint(1200, 9999)}"
             conn = get_db()
-            conn.execute(
-                "INSERT INTO complaints (tracking_id, citizen_nid, external_ref, domain, department, description, draft_text, status, evidence_note, created_at) VALUES (?, ?, 'Pending', ?, ?, ?, ?, 'Draft', ?, ?)",
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO complaints (tracking_id, citizen_nid, external_ref, domain, department, description, draft_text, status, evidence_note, created_at) VALUES (%s, %s, 'Pending', %s, %s, %s, %s, 'Draft', %s, %s)",
                 (tracking_id, body.get("citizen_nid", "Verified-Citizen"), body.get("domain"), body.get("department"), body.get("description"), body.get("draft_text"), body.get("evidence_note", "None"), datetime.now().strftime("%Y-%m-%d"))
             )
             conn.commit()
+            cur.close()
             conn.close()
             log_audit("Citizen", f"Created Complaint Draft ({body.get('domain')})", tracking_id)
             self._send_json({"tracking_id": tracking_id})
@@ -388,11 +416,14 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
             force = bool(body.get("force_create", False))
 
             conn = get_db()
-            existing = conn.execute("SELECT * FROM hazards").fetchall()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM hazards")
+            existing = cur.fetchall()
             if not force:
                 for h in existing:
                     dist = haversine_meters(lat, lng, h["lat"], h["lng"])
                     if dist <= 100.0:
+                        cur.close()
                         conn.close()
                         self._send_json({
                             "duplicate_detected": True,
@@ -401,22 +432,24 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
                         })
                         return
 
-            cur = conn.execute(
-                "INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at) VALUES (?, ?, ?, ?, ?, 'Open', ?)",
-                (body.get("title", "Civic Hazard"), body.get("category", "Road Damage"), lat, lng, datetime.now().strftime("%Y-%m-%d"))
+            cur.execute(
+                "INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at) VALUES (%s, %s, %s, %s, %s, 'Open', %s)",
+                (body.get("title", "Civic Hazard"), body.get("category", "Road Damage"), lat, lng, 1, datetime.now().strftime("%Y-%m-%d"))
             )
-            new_id = cur.lastrowid
             conn.commit()
+            cur.close()
             conn.close()
-            log_audit("Citizen", f"Pinned Hazard: {body.get('title')}", f"HAZ-{new_id}")
-            self._send_json({"duplicate_detected": False, "id": new_id})
+            log_audit("Citizen", f"Pinned Hazard: {body.get('title')}", "HAZ-NEW")
+            self._send_json({"duplicate_detected": False})
             return
 
         if path.startswith("/api/hazards/") and path.endswith("/upvote"):
             h_id = int(path.split("/")[3])
             conn = get_db()
-            conn.execute("UPDATE hazards SET upvotes = upvotes + 1 WHERE id = ?", (h_id,))
+            cur = conn.cursor()
+            cur.execute("UPDATE hazards SET upvotes = upvotes + 1 WHERE id = %s", (h_id,))
             conn.commit()
+            cur.close()
             conn.close()
             self._send_json({"success": True})
             return
@@ -425,5 +458,5 @@ class CivicSphereHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     server = ThreadingHTTPServer(("127.0.0.1", PORT), CivicSphereHandler)
-    print(f"CivicSphere AI running at http://127.0.0.1:{PORT}")
+    print(f"CivicSphere AI running with Supabase PostgreSQL at http://127.0.0.1:{PORT}")
     server.serve_forever()
