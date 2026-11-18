@@ -29,64 +29,83 @@
   <!-- TOAST NOTIFICATIONS CONTAINER -->
   <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
 
-  <!-- NID / SMART CARD VERIFIED LOGIN & REGISTRATION MODAL -->
+  <!-- SPLIT-SCREEN PROFESSIONAL LOGIN / REGISTRATION MODAL -->
   <div id="userAuthModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white max-w-md w-full p-7 md:p-8 rounded-3xl shadow-2xl space-y-5 border border-slate-200 my-auto relative">
-      <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 font-bold">✕</button>
-      <div class="text-center space-y-1.5">
-        <div class="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-800 text-white rounded-2xl mx-auto flex items-center justify-center font-extrabold text-xl shadow-lg">CS</div>
-        <h2 id="modalTitle" class="text-2xl font-extrabold text-slate-900" data-i18n="modal_title">NID Verification Required</h2>
-        <p id="modalSub" class="text-xs text-slate-500" data-i18n="modal_sub">Please login or register with your NID/Smart Card to complete this action.</p>
-      </div>
+    <div class="bg-white max-w-5xl w-full rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-slate-200 my-auto relative">
+      <button onclick="closeAuthModal()" class="absolute top-5 right-5 z-20 w-9 h-9 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 hover:text-slate-800 font-bold flex items-center justify-center transition">✕</button>
 
-      <!-- Login Form -->
-      <div id="modalLoginForm" class="space-y-4">
-        <div>
-          <label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_email">Email Address</label>
-          <input id="modalEmail" type="email" value="tanay@civicsphere.ai" class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none" />
-        </div>
-        <div>
-          <label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_password">Password</label>
-          <input id="modalPassword" type="password" value="citizen123" class="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none" />
-        </div>
-        <button onclick="executeUserLogin()" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 rounded-xl shadow-md transition" data-i18n="btn_login">
-          Login & Continue Action →
-        </button>
-        <p class="text-center text-xs text-slate-500 pt-1">
-          <span data-i18n="txt_no_acc">New Citizen?</span> <button onclick="switchModalMode('register')" class="text-emerald-700 font-extrabold hover:underline" data-i18n="btn_reg_link">Register with NID / Smart Card</button>
-        </p>
-      </div>
-
-      <!-- Register Form -->
-      <div id="modalRegisterForm" class="space-y-3.5 hidden">
-        <div>
-          <label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_fullname">Full Name (As per NID)</label>
-          <input id="mRegName" type="text" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm" placeholder="Tanay Biswas Bandhan" />
-        </div>
-        <div>
-          <label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_email">Email Address</label>
-          <input id="mRegEmail" type="email" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm" placeholder="citizen@example.com" />
-        </div>
-        <div>
-          <label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_password">Password</label>
-          <input id="mRegPassword" type="password" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm" placeholder="••••••••" />
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          <div>
-            <label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_nid">NID / Smart Card #</label>
-            <input id="mRegNid" type="text" maxlength="17" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm font-mono" placeholder="10, 13, 17 digits" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_dob">Date of Birth</label>
-            <input id="mRegDob" type="date" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm" />
+      <!-- Left Brand / Promotional Panel (Like Reference Image) -->
+      <div class="lg:col-span-5 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white p-8 md:p-12 flex flex-col justify-between relative overflow-hidden">
+        <div class="absolute -right-16 -top-16 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="space-y-6 relative z-10">
+          <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-700 rounded-2xl flex items-center justify-center font-extrabold text-xl shadow-lg">CS</div>
+          <div class="space-y-2">
+            <span class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2.5 py-1 rounded-md border border-emerald-500/30">NID-Verified Platform</span>
+            <h2 class="text-3xl font-extrabold tracking-tight leading-snug">Citizen Empowerment & Public Audit.</h2>
+            <p class="text-xs text-slate-300 leading-relaxed">Securely draft formal legal complaints, track public grievances, and audit infrastructure budgets with official schedule rates.</p>
           </div>
         </div>
-        <button onclick="executeUserRegister()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl shadow-md transition" data-i18n="btn_validate_reg">
-          Validate NID & Register
-        </button>
-        <p class="text-center text-xs text-slate-500">
-          <span data-i18n="txt_has_acc">Already verified?</span> <button onclick="switchModalMode('login')" class="text-emerald-700 font-extrabold hover:underline" data-i18n="btn_back_login">Back to Login</button>
-        </p>
+        <div class="pt-8 border-t border-slate-800 text-[11px] text-slate-400 relative z-10">
+          CivicSphere AI v2.5 • Enterprise Governance Edition
+        </div>
+      </div>
+
+      <!-- Right Form Panel (Split Screen) -->
+      <div class="lg:col-span-7 p-8 md:p-12 flex flex-col justify-center space-y-6 bg-white">
+        <!-- Tab Switcher (Sign In vs Create Account) -->
+        <div class="flex bg-slate-100 p-1.5 rounded-2xl max-w-sm">
+          <button id="tabLoginBtn" onclick="switchModalMode('login')" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-white text-slate-900 shadow-sm transition">Sign In</button>
+          <button id="tabRegBtn" onclick="switchModalMode('register')" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-900 transition">Create Account</button>
+        </div>
+
+        <div class="space-y-1">
+          <h3 id="formHeading" class="text-2xl font-extrabold text-slate-900">Sign in to CivicSphere</h3>
+          <p id="formSub" class="text-xs text-slate-500">Enter your credentials to access your citizen dashboard.</p>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <div id="modalLoginForm" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Email Address</label>
+            <input id="modalEmail" type="email" value="tanay@civicsphere.ai" class="w-full p-3.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none bg-slate-50/50" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Password</label>
+            <input id="modalPassword" type="password" value="citizen123" class="w-full p-3.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none bg-slate-50/50" />
+          </div>
+          <button onclick="executeUserLogin()" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3.5 rounded-xl shadow-md transition">
+            Sign In
+          </button>
+        </div>
+
+        <!-- REGISTER FORM -->
+        <div id="modalRegisterForm" class="space-y-3.5 hidden">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Full Name (As per NID)</label>
+            <input id="mRegName" type="text" class="w-full p-3 border border-slate-300 rounded-xl text-sm bg-slate-50/50" placeholder="Tanay Biswas Bandhan" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Email Address</label>
+            <input id="mRegEmail" type="email" class="w-full p-3 border border-slate-300 rounded-xl text-sm bg-slate-50/50" placeholder="citizen@example.com" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Password</label>
+            <input id="mRegPassword" type="password" class="w-full p-3 border border-slate-300 rounded-xl text-sm bg-slate-50/50" placeholder="••••••••" />
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-600 mb-1">NID / Smart Card #</label>
+              <input id="mRegNid" type="text" maxlength="17" class="w-full p-3 border border-slate-300 rounded-xl text-sm font-mono bg-slate-50/50" placeholder="10, 13, 17 digits" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Date of Birth</label>
+              <input id="mRegDob" type="date" class="w-full p-3 border border-slate-300 rounded-xl text-sm bg-slate-50/50" />
+            </div>
+          </div>
+          <button onclick="executeUserRegister()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-md transition">
+            Validate NID & Create Account
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -96,14 +115,14 @@
     <div class="bg-white max-w-sm w-full p-7 rounded-3xl shadow-2xl space-y-4 border border-amber-300 relative">
       <button onclick="document.getElementById('adminLoginModal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 font-bold">✕</button>
       <div class="text-center space-y-1">
-        <span class="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded uppercase" data-i18n="adm_gateway">Restricted Gateway</span>
-        <h2 class="text-xl font-extrabold text-slate-900 mt-1" data-i18n="adm_title">Admin Portal Login</h2>
-        <p class="text-xs text-slate-500" data-i18n="adm_sub">Enter administrator credentials</p>
+        <span class="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded uppercase">Restricted Gateway</span>
+        <h2 class="text-xl font-extrabold text-slate-900 mt-1">Admin Portal Login</h2>
+        <p class="text-xs text-slate-500">Enter administrator credentials</p>
       </div>
       <div class="space-y-3">
         <input id="admEmail" type="email" class="w-full p-2.5 border rounded-xl text-sm" value="admin@civicsphere.gov.bd" />
         <input id="admPassword" type="password" class="w-full p-2.5 border rounded-xl text-sm" placeholder="Password" value="admin123" />
-        <button onclick="executeAdminLogin()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl text-sm shadow" data-i18n="adm_btn">
+        <button onclick="executeAdminLogin()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl text-sm shadow">
           Authenticate Admin
         </button>
       </div>
@@ -484,27 +503,33 @@
       }
     }
 
-    function requireAuthBeforeAction(actionName) {
-      if (currentUser) {
-        executePendingAction(actionName);
-      } else {
-        pendingAction = actionName;
-        document.getElementById('userAuthModal').classList.remove('hidden');
-      }
-    }
-
     function closeAuthModal() {
       document.getElementById('userAuthModal').classList.add('hidden');
       pendingAction = null;
     }
 
     function switchModalMode(mode) {
+      const loginTab = document.getElementById('tabLoginBtn');
+      const regTab = document.getElementById('tabRegBtn');
+      const loginForm = document.getElementById('modalLoginForm');
+      const regForm = document.getElementById('modalRegisterForm');
+      const heading = document.getElementById('formHeading');
+      const sub = document.getElementById('formSub');
+
       if (mode === 'register') {
-        document.getElementById('modalLoginForm').classList.add('hidden');
-        document.getElementById('modalRegisterForm').classList.remove('hidden');
+        regTab.className = "flex-1 py-2.5 rounded-xl text-xs font-bold bg-white text-slate-900 shadow-sm transition";
+        loginTab.className = "flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-900 transition";
+        loginForm.classList.add('hidden');
+        regForm.classList.remove('hidden');
+        heading.textContent = "Create Account";
+        sub.textContent = "Register with your NID / Smart Card to verify your account.";
       } else {
-        document.getElementById('modalRegisterForm').classList.add('hidden');
-        document.getElementById('modalLoginForm').classList.remove('hidden');
+        loginTab.className = "flex-1 py-2.5 rounded-xl text-xs font-bold bg-white text-slate-900 shadow-sm transition";
+        regTab.className = "flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-900 transition";
+        regForm.classList.add('hidden');
+        loginForm.classList.remove('hidden');
+        heading.textContent = "Sign in to CivicSphere";
+        sub.textContent = "Enter your credentials to access your citizen dashboard.";
       }
     }
 
@@ -753,7 +778,13 @@
     }
 
     async function updateStage(trackingId, newStatus) {
-      showToast(`${trackingId} stage updated to ${newStatus}`);
+      let extRef = newStatus === 'Submitted' ? prompt("Enter official external ref (e.g., GRS-2026-9910):", "GRS-2026-9910") : null;
+      await fetch(`/api/complaints/${trackingId}/status`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json', 'X-Role': currentUser ? currentUser.role : 'Citizen' },
+        body: JSON.stringify({ status: newStatus, external_ref: extRef })
+      });
+      showToast(`${trackingId} updated to ${newStatus}`);
+      loadComplaints();
     }
 
     async function initBoq() {
