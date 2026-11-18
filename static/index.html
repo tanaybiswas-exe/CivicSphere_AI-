@@ -10,11 +10,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Plus Jakarta Sans', 'Hind Siliguri', sans-serif; }
+    body { font-family: 'Plus Jakarta Sans', 'Hind Siliguri', sans-serif; font-size: 14px; }
     .nav-active {
       background: linear-gradient(90deg, rgba(16,185,129,0.2) 0%, rgba(16,185,129,0.03) 100%);
       color: #ffffff;
-      border-left: 3px solid #10b981;
+      border-left: 4px solid #10b981;
     }
     #map { height: 460px; width: 100%; border-radius: 0.875rem; z-index: 1; }
     @media print {
@@ -24,7 +24,7 @@
     }
   </style>
 </head>
-<body class="bg-slate-100/90 text-slate-800 antialiased selection:bg-emerald-200">
+<body class="bg-slate-100 text-slate-800 antialiased selection:bg-emerald-200">
 
   <!-- TOAST NOTIFICATIONS CONTAINER -->
   <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
@@ -34,25 +34,25 @@
     <div class="bg-white max-w-5xl w-full rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-slate-200 my-auto relative">
       <button onclick="closeAuthModal()" class="absolute top-5 right-5 z-20 w-9 h-9 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 hover:text-slate-800 font-bold flex items-center justify-center transition">✕</button>
 
-      <!-- Left Brand / Promotional Panel (Like Reference Image) -->
+      <!-- Left Brand / Promotional Panel -->
       <div class="lg:col-span-5 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white p-8 md:p-12 flex flex-col justify-between relative overflow-hidden">
         <div class="absolute -right-16 -top-16 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
         <div class="space-y-6 relative z-10">
           <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-700 rounded-2xl flex items-center justify-center font-extrabold text-xl shadow-lg">CS</div>
-          <div class="space-y-2">
-            <span class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-2.5 py-1 rounded-md border border-emerald-500/30">NID-Verified Platform</span>
+          <div class="space-y-3">
+            <span class="text-[11px] font-extrabold uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-3 py-1 rounded-md border border-emerald-500/30">NID-Verified Platform</span>
             <h2 class="text-3xl font-extrabold tracking-tight leading-snug">Citizen Empowerment & Public Audit.</h2>
-            <p class="text-xs text-slate-300 leading-relaxed">Securely draft formal legal complaints, track public grievances, and audit infrastructure budgets with official schedule rates.</p>
+            <p class="text-sm text-slate-300 leading-relaxed">Securely draft formal legal complaints, track public grievances, and audit infrastructure budgets with official schedule rates.</p>
           </div>
         </div>
-        <div class="pt-8 border-t border-slate-800 text-[11px] text-slate-400 relative z-10">
+        <div class="pt-8 border-t border-slate-800 text-xs text-slate-400 relative z-10">
           CivicSphere AI v2.5 • Enterprise Governance Edition
         </div>
       </div>
 
-      <!-- Right Form Panel (Split Screen) -->
+      <!-- Right Form Panel -->
       <div class="lg:col-span-7 p-8 md:p-12 flex flex-col justify-center space-y-6 bg-white">
-        <!-- Tab Switcher (Sign In vs Create Account) -->
+        <!-- Tab Switcher -->
         <div class="flex bg-slate-100 p-1.5 rounded-2xl max-w-sm">
           <button id="tabLoginBtn" onclick="switchModalMode('login')" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-white text-slate-900 shadow-sm transition">Sign In</button>
           <button id="tabRegBtn" onclick="switchModalMode('register')" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-900 transition">Create Account</button>
@@ -82,7 +82,7 @@
         <div id="modalRegisterForm" class="space-y-3.5 hidden">
           <div>
             <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Full Name (As per NID)</label>
-            <input id="mRegName" type="text" class="w-full p-3 border border-slate-300 rounded-xl text-sm bg-slate-50/50" placeholder="Tanay Biswas Bandhan" />
+            <input id="mRegName" type="text" class="w-full p-3 border border-slate-300 rounded-xl text-sm bg-slate-50/50" placeholder="Your Name" />
           </div>
           <div>
             <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Email Address</label>
@@ -103,7 +103,7 @@
             </div>
           </div>
           <button onclick="executeUserRegister()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-md transition">
-            Validate NID & Create Account
+            Validate NID & Register
           </button>
         </div>
       </div>
@@ -115,14 +115,14 @@
     <div class="bg-white max-w-sm w-full p-7 rounded-3xl shadow-2xl space-y-4 border border-amber-300 relative">
       <button onclick="document.getElementById('adminLoginModal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 font-bold">✕</button>
       <div class="text-center space-y-1">
-        <span class="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded uppercase">Restricted Gateway</span>
-        <h2 class="text-xl font-extrabold text-slate-900 mt-1">Admin Portal Login</h2>
-        <p class="text-xs text-slate-500">Enter administrator credentials</p>
+        <span class="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded uppercase" data-i18n="adm_gateway">Restricted Gateway</span>
+        <h2 class="text-xl font-extrabold text-slate-900 mt-1" data-i18n="adm_title">Admin Portal Login</h2>
+        <p class="text-xs text-slate-500" data-i18n="adm_sub">Enter administrator credentials</p>
       </div>
       <div class="space-y-3">
         <input id="admEmail" type="email" class="w-full p-2.5 border rounded-xl text-sm" value="admin@civicsphere.gov.bd" />
         <input id="admPassword" type="password" class="w-full p-2.5 border rounded-xl text-sm" placeholder="Password" value="admin123" />
-        <button onclick="executeAdminLogin()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl text-sm shadow">
+        <button onclick="executeAdminLogin()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl text-sm shadow" data-i18n="adm_btn">
           Authenticate Admin
         </button>
       </div>
@@ -130,83 +130,83 @@
   </div>
 
   <!-- TOP GOVERNANCE BAR -->
-  <header class="bg-slate-950 text-slate-200 text-xs px-4 lg:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 sticky top-0 z-40">
+  <header class="bg-slate-950 text-slate-200 text-xs px-4 lg:px-6 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 sticky top-0 z-40">
     <div class="flex items-center gap-2.5 max-w-3xl">
-      <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold px-2 py-0.5 rounded text-[10px] tracking-wider uppercase shrink-0" data-i18n="top_badge">
+      <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold px-2.5 py-1 rounded text-[10px] tracking-wider uppercase shrink-0" data-i18n="top_badge">
         Independent Platform
       </span>
-      <p id="noticeText" class="text-slate-300 leading-snug" data-i18n="top_notice">
+      <p id="noticeText" class="text-slate-300 leading-snug text-xs" data-i18n="top_notice">
         CivicSphere AI is an independent citizen assistance platform—NOT an official Government of Bangladesh website. BOQ alerts are technical Schedule indicators, not legal accusations.
       </p>
     </div>
 
     <div class="flex items-center gap-3 ml-auto">
-      <div id="sessionUserBadge" class="flex items-center gap-1.5 bg-slate-900 px-3 py-1 rounded-full border border-emerald-700/60 text-[11px] text-emerald-300 font-semibold">
+      <div id="sessionUserBadge" class="flex items-center gap-1.5 bg-slate-900 px-3.5 py-1.5 rounded-full border border-emerald-700/60 text-xs text-emerald-300 font-semibold">
         <span id="sessionBadgeText" data-i18n="visitor_mode">Visitor Mode (Public Browse)</span>
       </div>
-      <button onclick="openHeaderAuth()" id="headerLoginBtn" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-3.5 py-1.5 rounded-lg shadow-sm transition cursor-pointer">
+      <button onclick="openHeaderAuth()" id="headerLoginBtn" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition cursor-pointer">
         🔐 Citizen Login
       </button>
-      <button onclick="toggleLanguage()" id="langBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-3 py-1.5 rounded-lg shadow-sm transition cursor-pointer">
+      <button onclick="toggleLanguage()" id="langBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition cursor-pointer">
         বাংলা / EN
       </button>
     </div>
   </header>
 
-  <div class="flex min-h-[calc(100vh-44px)]">
-    <!-- SIDEBAR NAVIGATION -->
+  <div class="flex min-h-[calc(100vh-50px)]">
+    <!-- SIDEBAR NAVIGATION (BALANCED PROFESSIONAL FONT SIZES) -->
     <aside class="w-72 bg-slate-900 text-slate-300 flex-shrink-0 hidden lg:flex flex-col justify-between border-r border-slate-800">
       <div>
         <div class="p-6 border-b border-slate-800/80">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-extrabold text-lg shadow-lg">CS</div>
+          <div class="flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-extrabold text-lg shadow-lg">CS</div>
             <div>
-              <h1 class="text-white font-extrabold text-lg tracking-tight">CivicSphere AI</h1>
+              <h1 class="text-white font-extrabold text-base tracking-tight">CivicSphere AI</h1>
               <p id="sidebarRoleLabel" class="text-xs text-emerald-400 font-semibold" data-i18n="suite_public">Public Access Suite</p>
             </div>
           </div>
         </div>
 
-        <nav class="p-3.5 space-y-1 text-sm font-medium" id="sidebarNav">
-          <button onclick="switchTab('overview')" data-tab="overview" class="nav-btn nav-active w-full text-left px-3.5 py-2.5 rounded-lg flex items-center gap-3 transition">
-            <span>🏠</span> <span data-i18n="nav_overview">Command Overview</span>
+        <nav class="p-4 space-y-1.5 text-sm font-semibold" id="sidebarNav">
+          <button onclick="switchTab('overview')" data-tab="overview" class="nav-btn nav-active w-full text-left px-4 py-3 rounded-xl flex items-center gap-3.5 transition text-sm">
+            <span class="text-base">🏠</span> <span data-i18n="nav_overview">Command Overview</span>
           </button>
-          <button onclick="switchTab('assistant')" data-tab="assistant" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
-            <span>🤖</span> <span data-i18n="nav_assistant">AI Citizen Assistant</span>
+          <button onclick="switchTab('assistant')" data-tab="assistant" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
+            <span class="text-base">🤖</span> <span data-i18n="nav_assistant">AI Citizen Assistant</span>
           </button>
-          <button onclick="switchTab('complaints')" data-tab="complaints" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
-            <span>📋</span> <span data-i18n="nav_complaints">Complaint Management</span>
+          <button onclick="switchTab('complaints')" data-tab="complaints" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
+            <span class="text-base">📋</span> <span data-i18n="nav_complaints">Complaint Management</span>
           </button>
-          <button onclick="switchTab('boq')" data-tab="boq" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
-            <span>💰</span> <span data-i18n="nav_boq">Project Cost Audit (BOQ)</span>
+          <button onclick="switchTab('boq')" data-tab="boq" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
+            <span class="text-base">💰</span> <span data-i18n="nav_boq">Project Cost Audit (BOQ)</span>
           </button>
-          <button onclick="switchTab('map')" data-tab="map" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
-            <span>🗺️</span> <span data-i18n="nav_map">Geospatial Hazard Map</span>
+          <button onclick="switchTab('map')" data-tab="map" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
+            <span class="text-base">🗺️</span> <span data-i18n="nav_map">Geospatial Hazard Map</span>
           </button>
-          <button onclick="switchTab('consumer')" data-tab="consumer" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
-            <span>🏷️</span> <span data-i18n="nav_consumer">Consumer Rights (16121)</span>
+          <button onclick="switchTab('consumer')" data-tab="consumer" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
+            <span class="text-base">🏷️</span> <span data-i18n="nav_consumer">Consumer Rights (16121)</span>
           </button>
-          <button onclick="switchTab('anticorruption')" data-tab="anticorruption" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
-            <span>🛡️</span> <span data-i18n="nav_anticorruption">Anti-Corruption (106)</span>
+          <button onclick="switchTab('anticorruption')" data-tab="anticorruption" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
+            <span class="text-base">🛡️</span> <span data-i18n="nav_anticorruption">Anti-Corruption (106)</span>
           </button>
-          <button onclick="switchTab('directory')" data-tab="directory" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg hover:bg-slate-800/70 flex items-center gap-3 transition">
-            <span>🌐</span> <span data-i18n="nav_directory">Govt Services Guide</span>
+          <button onclick="switchTab('directory')" data-tab="directory" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
+            <span class="text-base">🌐</span> <span data-i18n="nav_directory">Govt Services Guide</span>
           </button>
 
           <!-- ADMIN TAB -->
-          <div id="adminNavDivider" class="pt-3 mt-3 border-t border-slate-800 hidden">
-            <p class="px-3.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1" data-i18n="admin_gov">Admin Governance</p>
-            <button onclick="switchTab('admin')" data-tab="admin" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold flex items-center gap-3 transition">
-              <span>📊</span> <span data-i18n="nav_admin">Admin Console & Audit</span>
+          <div id="adminNavDivider" class="pt-4 mt-4 border-t border-slate-800 hidden">
+            <p class="px-4 text-[11px] font-bold uppercase tracking-wider text-amber-400 mb-1.5" data-i18n="admin_gov">Admin Governance</p>
+            <button onclick="switchTab('admin')" data-tab="admin" class="nav-btn w-full text-left px-4 py-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold flex items-center gap-3.5 transition text-sm">
+              <span class="text-base">📊</span> <span data-i18n="nav_admin">Admin Console & Audit</span>
             </button>
           </div>
         </nav>
       </div>
 
-      <div class="p-4 m-3.5 rounded-xl bg-slate-800/70 border border-slate-700/80 text-xs space-y-2">
+      <div class="p-4 m-4 rounded-2xl bg-slate-800/70 border border-slate-700/80 text-xs space-y-2">
         <div class="flex justify-between items-center">
-          <p class="font-bold text-emerald-400 uppercase tracking-wider text-[10px]" data-i18n="emerg_helplines">Emergency Helplines</p>
-          <button onclick="openAdminModal()" class="text-[10px] text-slate-500 hover:text-amber-400 underline" data-i18n="admin_access_btn">Admin Access</button>
+          <p class="font-bold text-emerald-400 uppercase tracking-wider text-[11px]" data-i18n="emerg_helplines">Emergency Helplines</p>
+          <button onclick="openAdminModal()" class="text-[11px] text-slate-400 hover:text-amber-400 underline font-semibold" data-i18n="admin_access_btn">Admin Access</button>
         </div>
         <div class="flex justify-between"><span data-i18n="lbl_emerg">National Emergency</span><span class="font-bold text-white">999</span></div>
         <div class="flex justify-between"><span data-i18n="lbl_acc">ACC Anti-Corruption</span><span class="font-bold text-white">106</span></div>
@@ -215,11 +215,11 @@
     </aside>
 
     <!-- MAIN WORKSPACE -->
-    <main class="flex-1 p-5 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+    <main class="flex-1 p-6 md:p-10 max-w-7xl mx-auto w-full space-y-6">
 
       <!-- MOBILE SELECTOR -->
       <div class="lg:hidden">
-        <select id="mobileNavSelect" onchange="switchTab(this.value)" class="w-full p-3 rounded-xl border border-slate-300 bg-white font-bold text-sm shadow-sm">
+        <select id="mobileNavSelect" onchange="switchTab(this.value)" class="w-full p-3.5 rounded-xl border border-slate-300 bg-white font-bold text-sm shadow-sm">
           <option value="overview">🏠 Command Overview</option>
           <option value="assistant">🤖 AI Citizen Assistant</option>
           <option value="complaints">📋 Complaint Management</option>
@@ -234,38 +234,38 @@
 
       <!-- MODULE 0: COMMAND OVERVIEW -->
       <section id="tab-overview" class="tab-section space-y-6">
-        <div class="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-7 rounded-2xl shadow-md border border-emerald-900/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div class="space-y-2 max-w-2xl">
-            <span class="text-xs font-bold uppercase tracking-widest text-emerald-400" data-i18n="suite_tag">NID-Verified Citizen Empowerment Suite</span>
-            <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight" data-i18n="hero_title">Bridge Information Asymmetry with AI & Open Data</h2>
-            <p class="text-sm text-slate-300 leading-relaxed" data-i18n="hero_sub">
+        <div class="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-8 md:p-10 rounded-3xl shadow-lg border border-emerald-900/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div class="space-y-3 max-w-2xl">
+            <span class="text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-3 py-1 rounded-md border border-emerald-500/30" data-i18n="suite_tag">NID-Verified Citizen Empowerment Suite</span>
+            <h2 class="text-2xl md:text-4xl font-extrabold tracking-tight" data-i18n="hero_title">Bridge Information Asymmetry with AI & Open Data</h2>
+            <p class="text-sm md:text-base text-slate-300 leading-relaxed" data-i18n="hero_sub">
               Draft legally cited complaints in Bangla or English, track grievances end-to-end, audit public infrastructure BOQs against LGED/PWD schedules, and pin geospatial hazards with 100m duplicate clustering.
             </p>
           </div>
           <div class="flex flex-wrap gap-3 shrink-0">
-            <button onclick="switchTab('assistant')" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-5 py-3 rounded-xl shadow-lg transition text-sm" data-i18n="btn_draft_comp">
+            <button onclick="switchTab('assistant')" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-6 py-3.5 rounded-2xl shadow-lg transition text-sm" data-i18n="btn_draft_comp">
               + Draft Legal Complaint
             </button>
-            <button onclick="switchTab('boq')" class="bg-white/10 hover:bg-white/20 text-white font-semibold px-5 py-3 rounded-xl border border-white/20 transition text-sm" data-i18n="btn_audit_boq">
+            <button onclick="switchTab('boq')" class="bg-white/10 hover:bg-white/20 text-white font-semibold px-6 py-3.5 rounded-2xl border border-white/20 transition text-sm" data-i18n="btn_audit_boq">
               Audit Public BOQ
             </button>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
             <span class="text-xs font-bold uppercase text-slate-500" data-i18n="kpi_1">Tracked Grievances</span>
             <p id="kpiTotalComplaints" class="text-3xl font-extrabold text-slate-900 mt-2">0</p>
           </div>
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
             <span class="text-xs font-bold uppercase text-slate-500" data-i18n="kpi_2">Resolved Cases</span>
             <p id="kpiResolved" class="text-3xl font-extrabold text-slate-900 mt-2">0</p>
           </div>
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
             <span class="text-xs font-bold uppercase text-slate-500" data-i18n="kpi_3">Geospatial Hazards</span>
             <p id="kpiHazards" class="text-3xl font-extrabold text-slate-900 mt-2">0</p>
           </div>
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
             <span class="text-xs font-bold uppercase text-slate-500" data-i18n="kpi_4">Verified Citizens</span>
             <p id="kpiUsers" class="text-3xl font-extrabold text-slate-900 mt-2">0</p>
           </div>
@@ -274,36 +274,36 @@
 
       <!-- MODULE 1: AI ASSISTANT -->
       <section id="tab-assistant" class="tab-section hidden space-y-6">
-        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+        <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border border-slate-200 space-y-6">
           <div>
-            <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md" data-i18n="mod1_tag">9-Domain Bilingual NLU + Statutory RAG</span>
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-md" data-i18n="mod1_tag">9-Domain Bilingual NLU + Statutory RAG</span>
             <h2 class="text-2xl font-extrabold text-slate-900 mt-2" data-i18n="mod1_title">AI Citizen Assistant & Formal Complaint Drafter</h2>
             <p class="text-sm text-slate-600 mt-1" data-i18n="mod1_sub">Describe your problem in plain Bangla or English. We identify the exact jurisdiction and draft an official complaint.</p>
           </div>
 
-          <div class="space-y-3">
-            <textarea id="aiPrompt" rows="4" class="w-full rounded-xl border border-slate-300 p-4 text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none bg-slate-50/50" placeholder="Example: মিরপুর ১০ নম্বর গোলচত্বরের পাশে রাস্তার ম্যানহোলের ঢাকনা খোলা..."></textarea>
+          <div class="space-y-4">
+            <textarea id="aiPrompt" rows="4" class="w-full rounded-2xl border border-slate-300 p-4 text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none bg-slate-50/50" placeholder="Example: মিরপুর ১০ নম্বর গোলচত্বরের পাশে রাস্তার ম্যানহোলের ঢাকনা খোলা..."></textarea>
             <div class="flex flex-wrap items-center gap-2 pt-1">
-              <button onclick="analyzeIssue()" id="analyzeBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-2.5 rounded-xl shadow-sm transition" data-i18n="btn_classify">
+              <button onclick="analyzeIssue()" id="analyzeBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-3 rounded-2xl shadow-sm transition text-sm" data-i18n="btn_classify">
                 ✨ Classify & Draft Formal Complaint
               </button>
             </div>
           </div>
         </div>
 
-        <div id="aiResultCard" class="hidden bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-emerald-200 space-y-5">
+        <div id="aiResultCard" class="hidden bg-white p-7 md:p-10 rounded-3xl shadow-sm border border-emerald-200 space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
             <h3 class="font-extrabold text-lg text-slate-900" data-i18n="draft_res_title">Jurisdictional Classification & Statutory Draft</h3>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-emerald-50/80 p-4 rounded-xl border"><span class="text-[11px] font-bold uppercase text-emerald-700" data-i18n="col_domain">1. Civic Domain</span><p id="resDomain" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
-            <div class="bg-blue-50/80 p-4 rounded-xl border"><span class="text-[11px] font-bold uppercase text-blue-700" data-i18n="col_auth">2. Responsible Authority</span><p id="resDept" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
-            <div class="bg-purple-50/80 p-4 rounded-xl border"><span class="text-[11px] font-bold uppercase text-purple-700" data-i18n="col_law">3. Applicable Act</span><p id="resLaw" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
+            <div class="bg-emerald-50/80 p-5 rounded-2xl border border-emerald-200"><span class="text-xs font-bold uppercase text-emerald-700" data-i18n="col_domain">1. Civic Domain</span><p id="resDomain" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
+            <div class="bg-blue-50/80 p-5 rounded-2xl border border-blue-200"><span class="text-xs font-bold uppercase text-blue-700" data-i18n="col_auth">2. Responsible Authority</span><p id="resDept" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
+            <div class="bg-purple-50/80 p-5 rounded-2xl border border-purple-200"><span class="text-xs font-bold uppercase text-purple-700" data-i18n="col_law">3. Applicable Act</span><p id="resLaw" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
           </div>
-          <textarea id="resDraft" rows="10" class="w-full rounded-xl border border-slate-300 p-4 text-sm font-mono bg-slate-50 leading-relaxed"></textarea>
+          <textarea id="resDraft" rows="10" class="w-full rounded-2xl border border-slate-300 p-4 text-sm font-mono bg-slate-50 leading-relaxed"></textarea>
           <div class="flex flex-col sm:flex-row gap-3">
-            <input type="text" id="evidenceNote" placeholder="Evidence Vault Reference (e.g., Photo filename)" class="flex-1 rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm bg-white" />
-            <button onclick="requireAuthBeforeAction('saveComplaint')" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-5 py-2.5 rounded-lg shadow-sm" data-i18n="btn_save_tracker">
+            <input type="text" id="evidenceNote" placeholder="Evidence Vault Reference (e.g., Photo filename)" class="flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm bg-white" />
+            <button onclick="requireAuthBeforeAction('saveComplaint')" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-3 rounded-xl shadow-sm text-sm" data-i18n="btn_save_tracker">
               Save & Generate CIVIC-2026 ID →
             </button>
           </div>
@@ -312,21 +312,21 @@
 
       <!-- MODULE 2: COMPLAINTS -->
       <section id="tab-complaints" class="tab-section hidden space-y-6">
-        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+        <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border border-slate-200 space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod2_title">Complaint Management & Evidence Vault</h2>
-            <button onclick="loadComplaints()" class="text-xs bg-slate-900 text-white font-bold px-4 py-2 rounded-lg" data-i18n="btn_refresh">↻ Refresh Ledger</button>
+            <button onclick="loadComplaints()" class="text-xs bg-slate-900 text-white font-bold px-4.5 py-2.5 rounded-xl" data-i18n="btn_refresh">↻ Refresh Ledger</button>
           </div>
-          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <div class="overflow-x-auto border border-slate-200 rounded-2xl">
             <table class="w-full text-left border-collapse text-sm">
               <thead>
-                <tr class="bg-slate-900 text-slate-200 uppercase text-[11px]">
-                  <th class="p-3.5" data-i18n="th_id">CivicSphere ID</th>
-                  <th class="p-3.5" data-i18n="th_ref">Official Govt Ref</th>
-                  <th class="p-3.5" data-i18n="th_domain">Domain & Authority</th>
-                  <th class="p-3.5" data-i18n="th_vault">Evidence Vault</th>
-                  <th class="p-3.5" data-i18n="th_stage">Workflow Stage</th>
-                  <th class="p-3.5" data-i18n="th_update">Update Stage</th>
+                <tr class="bg-slate-900 text-slate-200 uppercase text-xs">
+                  <th class="p-4" data-i18n="th_id">CivicSphere ID</th>
+                  <th class="p-4" data-i18n="th_ref">Official Govt Ref</th>
+                  <th class="p-4" data-i18n="th_domain">Domain & Authority</th>
+                  <th class="p-4" data-i18n="th_vault">Evidence Vault</th>
+                  <th class="p-4" data-i18n="th_stage">Workflow Stage</th>
+                  <th class="p-4" data-i18n="th_update">Update Stage</th>
                 </tr>
               </thead>
               <tbody id="complaintsTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
@@ -337,45 +337,45 @@
 
       <!-- MODULE 3: BOQ AUDIT -->
       <section id="tab-boq" class="tab-section hidden space-y-6">
-        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+        <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border border-slate-200 space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod3_title">Public Infrastructure BOQ Cost Transparency</h2>
             <div class="flex gap-2">
-              <button onclick="loadBoqPreset('road')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded-lg">Road Preset</button>
-              <button onclick="loadBoqPreset('culvert')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded-lg">Culvert Preset</button>
+              <button onclick="loadBoqPreset('road')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3.5 py-2 rounded-xl">Road Preset</button>
+              <button onclick="loadBoqPreset('culvert')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3.5 py-2 rounded-xl">Culvert Preset</button>
             </div>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border">
-            <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_proj_title">Project Title</label><input id="boqProjectName" type="text" value="Upazila Connecting Road Rehabilitation" class="w-full rounded-lg border p-2.5 text-sm bg-white" /></div>
-            <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_schedule">Benchmark Schedule</label><select id="boqAgency" class="w-full rounded-lg border p-2.5 text-sm bg-white font-semibold"><option value="LGED">LGED</option><option value="PWD">PWD</option></select></div>
-            <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_budget">Allocated Budget (BDT)</label><input id="boqBudget" type="number" value="2500000" class="w-full rounded-lg border p-2.5 text-sm bg-white font-semibold" /></div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-5 bg-slate-50 p-5 rounded-2xl border">
+            <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_proj_title">Project Title</label><input id="boqProjectName" type="text" value="Upazila Connecting Road Rehabilitation" class="w-full rounded-xl border p-3 text-sm bg-white" /></div>
+            <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_schedule">Benchmark Schedule</label><select id="boqAgency" class="w-full rounded-lg border p-3 text-sm bg-white font-semibold"><option value="LGED">LGED</option><option value="PWD">PWD</option></select></div>
+            <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_budget">Allocated Budget (BDT)</label><input id="boqBudget" type="number" value="2500000" class="w-full rounded-xl border p-3 text-sm bg-white font-semibold" /></div>
           </div>
 
           <div class="space-y-3">
             <div class="flex justify-between items-center">
               <h3 class="font-bold text-slate-800 text-sm">Bill of Quantities (BOQ) Items</h3>
-              <button onclick="addBoqRow()" class="text-xs bg-slate-900 text-white font-bold px-3 py-1.5 rounded-lg">+ Add BOQ Item</button>
+              <button onclick="addBoqRow()" class="text-xs bg-slate-900 text-white font-bold px-4 py-2 rounded-xl">+ Add BOQ Item</button>
             </div>
-            <div id="boqRowsContainer" class="space-y-2"></div>
+            <div id="boqRowsContainer" class="space-y-2.5"></div>
           </div>
 
-          <button onclick="runBoqAudit()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-3 rounded-xl shadow-sm" data-i18n="btn_run_audit">
+          <button onclick="runBoqAudit()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-3.5 rounded-2xl shadow-sm text-sm" data-i18n="btn_run_audit">
             🔍 Run 5-Way Financial & Rate Audit
           </button>
         </div>
 
-        <div id="boqResultPanel" class="hidden bg-white p-6 md:p-8 rounded-2xl shadow-sm border space-y-6">
+        <div id="boqResultPanel" class="hidden bg-white p-7 md:p-10 rounded-3xl shadow-sm border space-y-6">
           <div id="boqAlertBanner" class="p-4 rounded-xl border font-bold text-sm"></div>
-          <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            <div class="p-4 bg-slate-50 rounded-xl border"><span class="text-[11px] text-slate-500 uppercase font-bold">Allocated Budget</span><p id="mAllocated" class="text-lg font-extrabold mt-1">৳0</p></div>
-            <div class="p-4 bg-emerald-50 rounded-xl border"><span class="text-[11px] text-emerald-700 uppercase font-bold">Benchmark</span><p id="mBenchmark" class="text-lg font-extrabold text-emerald-900 mt-1">৳0</p></div>
-            <div class="p-4 bg-blue-50 rounded-xl border"><span class="text-[11px] text-blue-700 uppercase font-bold">Quoted Total</span><p id="mQuoted" class="text-lg font-extrabold text-blue-900 mt-1">৳0</p></div>
-            <div class="p-4 bg-amber-50 rounded-xl border"><span class="text-[11px] text-amber-700 uppercase font-bold">Budget Var</span><p id="mBudgetVar" class="text-lg font-extrabold text-amber-900 mt-1">0%</p></div>
-            <div class="p-4 bg-rose-50 rounded-xl border"><span class="text-[11px] text-rose-700 uppercase font-bold">Schedule Var</span><p id="mSchedVar" class="text-lg font-extrabold text-rose-900 mt-1">0%</p></div>
+          <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="p-5 bg-slate-50 rounded-2xl border"><span class="text-xs text-slate-500 uppercase font-bold">Allocated Budget</span><p id="mAllocated" class="text-lg font-extrabold mt-1">৳0</p></div>
+            <div class="p-5 bg-emerald-50 rounded-2xl border"><span class="text-xs text-emerald-700 uppercase font-bold">Benchmark</span><p id="mBenchmark" class="text-lg font-extrabold text-emerald-900 mt-1">৳0</p></div>
+            <div class="p-5 bg-blue-50 rounded-2xl border"><span class="text-xs text-blue-700 uppercase font-bold">Quoted Total</span><p id="mQuoted" class="text-lg font-extrabold text-blue-900 mt-1">৳0</p></div>
+            <div class="p-5 bg-amber-50 rounded-2xl border"><span class="text-xs text-amber-700 uppercase font-bold">Budget Var</span><p id="mBudgetVar" class="text-lg font-extrabold text-amber-900 mt-1">0%</p></div>
+            <div class="p-5 bg-rose-50 rounded-2xl border"><span class="text-xs text-rose-700 uppercase font-bold">Schedule Var</span><p id="mSchedVar" class="text-lg font-extrabold text-rose-900 mt-1">0%</p></div>
           </div>
-          <div class="overflow-x-auto border rounded-xl">
+          <div class="overflow-x-auto border rounded-2xl">
             <table class="w-full text-left text-sm">
-              <thead><tr class="bg-slate-900 text-white text-xs"><th class="p-3">Item</th><th class="p-3">Qty</th><th class="p-3">Standard</th><th class="p-3">Quoted</th><th class="p-3">Variance</th><th class="p-3">Indicator</th></tr></thead>
+              <thead><tr class="bg-slate-900 text-white text-xs"><th class="p-4">Item</th><th class="p-4">Qty</th><th class="p-4">Standard</th><th class="p-4">Quoted</th><th class="p-4">Variance</th><th class="p-4">Indicator</th></tr></thead>
               <tbody id="boqAuditTable" class="divide-y"></tbody>
             </table>
           </div>
@@ -384,32 +384,32 @@
 
       <!-- MODULE 4: MAP -->
       <section id="tab-map" class="tab-section hidden space-y-6">
-        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+        <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border border-slate-200 space-y-6">
           <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod4_title">Geospatial Infrastructure Hazard Map</h2>
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2"><div id="map"></div></div>
             <div class="space-y-4">
-              <div class="bg-slate-50 p-4 rounded-xl border space-y-3">
+              <div class="bg-slate-50 p-5 rounded-2xl border space-y-3.5">
                 <h3 class="font-bold text-slate-900 text-sm" data-i18n="map_pin_title">Pin Infrastructure Hazard</h3>
-                <input id="hazTitle" type="text" placeholder="Hazard title" class="w-full rounded-lg border p-2.5 text-sm bg-white" />
-                <select id="hazCat" class="w-full rounded-lg border p-2.5 text-sm bg-white"><option value="Road Damage">Road Damage</option><option value="Drainage Hazard">Drainage Hazard</option></select>
-                <div class="grid grid-cols-2 gap-2">
-                  <input id="hazLat" type="number" step="any" value="23.8103" class="p-2 border rounded text-xs bg-white font-mono" />
-                  <input id="hazLng" type="number" step="any" value="90.4125" class="p-2 border rounded text-xs bg-white font-mono" />
+                <input id="hazTitle" type="text" placeholder="Hazard title" class="w-full rounded-xl border p-3 text-sm bg-white" />
+                <select id="hazCat" class="w-full rounded-xl border p-3 text-sm bg-white"><option value="Road Damage">Road Damage</option><option value="Drainage Hazard">Drainage Hazard</option></select>
+                <div class="grid grid-cols-2 gap-2.5">
+                  <input id="hazLat" type="number" step="any" value="23.8103" class="p-2.5 border rounded-xl text-xs bg-white font-mono" />
+                  <input id="hazLng" type="number" step="any" value="90.4125" class="p-2.5 border rounded-xl text-xs bg-white font-mono" />
                 </div>
-                <button onclick="requireAuthBeforeAction('pinHazard')" class="w-full bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm" data-i18n="btn_submit_pin">
+                <button onclick="requireAuthBeforeAction('pinHazard')" class="w-full bg-emerald-700 text-white font-bold py-3 rounded-xl text-sm" data-i18n="btn_submit_pin">
                   📍 Submit Pin (100m Radius Check)
                 </button>
               </div>
-              <div id="dupWarningBox" class="hidden bg-amber-50 border border-amber-300 p-3 rounded-xl text-xs space-y-2">
+              <div id="dupWarningBox" class="hidden bg-amber-50 border border-amber-300 p-4 rounded-2xl text-xs space-y-2.5">
                 <p class="font-bold text-amber-900">⚠️ Duplicate Hazard Within 100m!</p>
                 <p id="dupDetails" class="text-amber-800"></p>
                 <div class="flex gap-2">
-                  <button id="dupUpvoteBtn" class="bg-amber-600 text-white px-3 py-1 rounded font-bold">▲ Upvote Existing</button>
-                  <button onclick="realPinHazard(true)" class="bg-slate-800 text-white px-3 py-1 rounded">Report Separately</button>
+                  <button id="dupUpvoteBtn" class="bg-amber-600 text-white px-3 py-1.5 rounded-lg font-bold">▲ Upvote Existing</button>
+                  <button onclick="realPinHazard(true)" class="bg-slate-800 text-white px-3 py-1.5 rounded-lg">Report Separately</button>
                 </div>
               </div>
-              <div id="hazardListContainer" class="space-y-2 max-h-48 overflow-y-auto"></div>
+              <div id="hazardListContainer" class="space-y-2.5 max-h-56 overflow-y-auto"></div>
             </div>
           </div>
         </div>
@@ -418,17 +418,17 @@
       <!-- MODULE 5: CONSUMER RIGHTS -->
       <section id="tab-consumer" class="tab-section hidden space-y-6">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border space-y-5">
+          <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border space-y-6">
             <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod5_title">MRP Overcharge & 25% Citizen Reward Calculator</h2>
-            <div class="space-y-3.5">
-              <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_mrp">MRP (BDT)</label><input id="calcMrp" type="number" value="175" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3 text-sm font-semibold" /></div>
-              <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_charged">Charged (BDT)</label><input id="calcCharged" type="number" value="215" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3 text-sm font-semibold" /></div>
-              <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_fine">Estimated Fine (BDT)</label><input id="calcFine" type="number" value="10000" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3 text-sm font-semibold" /></div>
+            <div class="space-y-4">
+              <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_mrp">MRP (BDT)</label><input id="calcMrp" type="number" value="175" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3.5 text-sm font-semibold bg-slate-50/50" /></div>
+              <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_charged">Charged (BDT)</label><input id="calcCharged" type="number" value="215" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3.5 text-sm font-semibold bg-slate-50/50" /></div>
+              <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_fine">Estimated Fine (BDT)</label><input id="calcFine" type="number" value="10000" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3.5 text-sm font-semibold bg-slate-50/50" /></div>
             </div>
-            <div class="grid grid-cols-3 gap-3 bg-slate-900 text-white p-5 rounded-2xl text-center">
-              <div><span class="text-[11px] text-slate-400 uppercase font-bold">Overcharge</span><p id="resOvercharge" class="text-xl font-extrabold text-rose-400 mt-1">৳40</p></div>
-              <div><span class="text-[11px] text-slate-400 uppercase font-bold">Markup %</span><p id="resOverchargePct" class="text-xl font-extrabold text-amber-400 mt-1">22.9%</p></div>
-              <div><span class="text-[11px] text-slate-400 uppercase font-bold">25% Reward</span><p id="resReward" class="text-xl font-extrabold text-emerald-400 mt-1">৳2,500</p></div>
+            <div class="grid grid-cols-3 gap-3 bg-slate-900 text-white p-6 rounded-2xl text-center">
+              <div><span class="text-xs text-slate-400 font-bold uppercase">Overcharge</span><p id="resOvercharge" class="text-xl font-extrabold text-rose-400 mt-1">৳40</p></div>
+              <div><span class="text-xs text-slate-400 font-bold uppercase">Markup %</span><p id="resOverchargePct" class="text-xl font-extrabold text-amber-400 mt-1">22.9%</p></div>
+              <div><span class="text-xs text-slate-400 font-bold uppercase">25% Reward</span><p id="resReward" class="text-xl font-extrabold text-emerald-400 mt-1">৳2,500</p></div>
             </div>
           </div>
         </div>
@@ -436,7 +436,7 @@
 
       <!-- MODULE 6: ANTI-CORRUPTION -->
       <section id="tab-anticorruption" class="tab-section hidden space-y-6">
-        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border space-y-6">
+        <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border space-y-6">
           <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod6_title">Confidential Anti-Corruption & Whistleblower Advisory</h2>
           <p class="text-sm text-slate-600" data-i18n="mod6_sub">Protected under the Public Interest Information Disclosure Act, 2011.</p>
         </div>
@@ -444,29 +444,29 @@
 
       <!-- MODULE 7: DIRECTORY -->
       <section id="tab-directory" class="tab-section hidden space-y-6">
-        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border space-y-5">
+        <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod7_title">Verified Government Services Directory</h2>
-            <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full" data-i18n="auto_sync_badge">⚡ Live Auto-Synced from Govt Feed</span>
+            <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-3.5 py-1.5 rounded-full" data-i18n="auto_sync_badge">⚡ Live Auto-Synced from Govt Feed</span>
           </div>
-          <div id="directoryGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+          <div id="directoryGrid" class="grid grid-cols-1 md:grid-cols-2 gap-5"></div>
         </div>
       </section>
 
       <!-- MODULE 8: ADMIN CONSOLE -->
       <section id="tab-admin" class="tab-section hidden space-y-6">
-        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-amber-300 space-y-6">
+        <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border border-amber-300 space-y-6">
           <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod8_title">Admin Analytics, NID Citizen Registry & Audit Ledger</h2>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="p-4 bg-slate-50 border rounded-xl"><span class="text-xs text-slate-500 uppercase font-bold">Total Complaints</span><p id="admComplaints" class="text-2xl font-extrabold mt-1">0</p></div>
-            <div class="p-4 bg-emerald-50 border rounded-xl"><span class="text-xs text-emerald-700 uppercase font-bold">Resolved Cases</span><p id="admResolved" class="text-2xl font-extrabold mt-1">0</p></div>
-            <div class="p-4 bg-amber-50 border rounded-xl"><span class="text-xs text-amber-700 uppercase font-bold">Verified Citizens</span><p id="admUsers" class="text-2xl font-extrabold mt-1">0</p></div>
-            <div class="p-4 bg-purple-50 border rounded-xl"><span class="text-xs text-purple-700 uppercase font-bold">Hazards Pinned</span><p id="admHazards" class="text-2xl font-extrabold mt-1">0</p></div>
+            <div class="p-5 bg-slate-50 border rounded-2xl"><span class="text-xs text-slate-500 uppercase font-bold">Total Complaints</span><p id="admComplaints" class="text-2xl font-extrabold mt-1">0</p></div>
+            <div class="p-5 bg-emerald-50 border rounded-2xl"><span class="text-xs text-emerald-700 uppercase font-bold">Resolved Cases</span><p id="admResolved" class="text-2xl font-extrabold mt-1">0</p></div>
+            <div class="p-5 bg-amber-50 border rounded-2xl"><span class="text-xs text-amber-700 uppercase font-bold">Verified Citizens</span><p id="admUsers" class="text-2xl font-extrabold mt-1">0</p></div>
+            <div class="p-5 bg-purple-50 border rounded-2xl"><span class="text-xs text-purple-700 uppercase font-bold">Hazards Pinned</span><p id="admHazards" class="text-2xl font-extrabold mt-1">0</p></div>
           </div>
-          <div class="overflow-x-auto border rounded-xl">
+          <div class="overflow-x-auto border rounded-2xl">
             <table class="w-full text-left text-xs">
               <thead class="bg-slate-900 text-white uppercase">
-                <tr><th class="p-3">Event #</th><th class="p-3">Actor Role</th><th class="p-3">Action Recorded</th><th class="p-3">Timestamp</th></tr>
+                <tr><th class="p-4">Event #</th><th class="p-4">Actor Role</th><th class="p-4">Action Recorded</th><th class="p-4">Timestamp</th></tr>
               </thead>
               <tbody id="auditLogBody" class="divide-y bg-white"></tbody>
             </table>
@@ -489,7 +489,7 @@
       const container = document.getElementById("toastContainer");
       const toast = document.createElement("div");
       const bg = type === "error" ? "bg-rose-900 border-rose-700" : type === "warn" ? "bg-amber-900 border-amber-700" : "bg-slate-900 border-emerald-500";
-      toast.className = `${bg} text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-xl border pointer-events-auto transition-all`;
+      toast.className = `${bg} text-white text-xs font-semibold px-4 py-3 rounded-2xl shadow-xl border pointer-events-auto transition-all`;
       toast.textContent = message;
       container.appendChild(toast);
       setTimeout(() => toast.remove(), 3500);
@@ -707,13 +707,13 @@
 
     function renderDirectoryCards(services) {
       document.getElementById('directoryGrid').innerHTML = services.map(s => `
-        <div class="p-5 border rounded-2xl bg-slate-50 flex flex-col justify-between space-y-3 shadow-sm hover:border-emerald-400 transition">
+        <div class="p-6 border rounded-3xl bg-slate-50 flex flex-col justify-between space-y-4 shadow-sm hover:border-emerald-400 transition">
           <div>
             <div class="flex justify-between items-start gap-2">
-              <h3 class="font-bold text-slate-900 text-base">${s.service_name}</h3>
-              <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded shrink-0">${s.fee}</span>
+              <h3 class="font-extrabold text-slate-900 text-base">${s.service_name}</h3>
+              <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-full shrink-0">${s.fee}</span>
             </div>
-            <p class="text-xs text-slate-500 mt-1">${s.ministry} • SLA: <strong>${s.sla_timeline}</strong></p>
+            <p class="text-xs text-slate-500 mt-2">${s.ministry} • SLA: <strong>${s.sla_timeline}</strong></p>
           </div>
           <a href="${s.portal_url}" target="_blank" class="text-xs font-bold text-emerald-700 hover:underline inline-block mt-2">${currentLang === "bn" ? "অফিশিয়াল পোর্টাল ভিজিট করুন ↗" : "Access Official Portal ↗"}</a>
         </div>
@@ -763,13 +763,13 @@
       const stages = ["Draft", "Ready", "Submitted", "In Progress", "Resolved"];
       document.getElementById('complaintsTableBody').innerHTML = list.map(c => `
         <tr class="hover:bg-slate-50">
-          <td class="p-3.5 font-mono font-extrabold text-slate-900">${c.tracking_id}</td>
-          <td class="p-3.5 text-xs font-bold text-slate-600">${c.external_ref}</td>
-          <td class="p-3.5"><div class="font-bold text-slate-900">${c.domain}</div><div class="text-xs text-slate-500">${c.department}</div></td>
-          <td class="p-3.5 text-xs text-slate-600">${c.evidence_note}</td>
-          <td class="p-3.5"><span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">${c.status}</span></td>
-          <td class="p-3.5">
-            <select onchange="updateStage('${c.tracking_id}', this.value)" class="border rounded-lg px-2.5 py-1 text-xs bg-white">
+          <td class="p-4 font-mono font-extrabold text-slate-900">${c.tracking_id}</td>
+          <td class="p-4 text-xs font-bold text-slate-600">${c.external_ref}</td>
+          <td class="p-4"><div class="font-bold text-slate-900">${c.domain}</div><div class="text-xs text-slate-500">${c.department}</div></td>
+          <td class="p-4 text-xs text-slate-600">${c.evidence_note}</td>
+          <td class="p-4"><span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">${c.status}</span></td>
+          <td class="p-4">
+            <select onchange="updateStage('${c.tracking_id}', this.value)" class="border rounded-xl px-3 py-1.5 text-xs bg-white font-medium">
               ${stages.map(s => `<option value="${s}" ${s === c.status ? 'selected' : ''}>${s}</option>`).join('')}
             </select>
           </td>
@@ -813,12 +813,12 @@
         `<option value="${code}" ${code === defaultCode ? 'selected' : ''}>${info.name} [LGED: ৳${info.lged} | PWD: ৳${info.pwd}]</option>`
       ).join('');
       const row = document.createElement('div');
-      row.className = "boq-row grid grid-cols-1 md:grid-cols-12 gap-2 items-center bg-slate-50 p-3 rounded-xl border";
+      row.className = "boq-row grid grid-cols-1 md:grid-cols-12 gap-2.5 items-center bg-slate-50 p-3.5 rounded-2xl border";
       row.innerHTML = `
-        <select class="boq-code md:col-span-6 rounded-lg border p-2 text-xs bg-white">${options}</select>
-        <input type="number" class="boq-qty md:col-span-2 rounded-lg border p-2 text-xs bg-white" value="${defaultQty}" />
-        <input type="number" class="boq-rate md:col-span-3 rounded-lg border p-2 text-xs bg-white" value="${defaultRate}" />
-        <button onclick="this.parentElement.remove()" class="md:col-span-1 text-rose-600 font-bold text-xs">✕</button>
+        <select class="boq-code md:col-span-6 rounded-xl border p-2.5 text-xs bg-white">${options}</select>
+        <input type="number" class="boq-qty md:col-span-2 rounded-xl border p-2.5 text-xs bg-white font-mono" value="${defaultQty}" />
+        <input type="number" class="boq-rate md:col-span-3 rounded-xl border p-2.5 text-xs bg-white font-mono" value="${defaultRate}" />
+        <button onclick="this.parentElement.remove()" class="md:col-span-1 text-rose-600 font-bold text-xs hover:bg-rose-50 p-2 rounded-lg">✕</button>
       `;
       container.appendChild(row);
     }
@@ -855,10 +855,10 @@
 
       document.getElementById('boqAuditTable').innerHTML = data.items.map(i => `
         <tr>
-          <td class="p-3 font-semibold">${i.name}</td><td class="p-3">${i.quantity} ${i.unit}</td>
-          <td class="p-3">৳${i.standard_rate}</td><td class="p-3 font-bold">৳${i.quoted_rate}</td>
-          <td class="p-3 font-extrabold ${i.rate_variance_pct > 20 ? 'text-rose-600' : 'text-emerald-700'}">${i.rate_variance_pct}%</td>
-          <td class="p-3"><span class="px-2 py-0.5 rounded text-xs font-bold ${i.flag.includes('INFLATED') ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}">${i.flag}</span></td>
+          <td class="p-4 font-semibold">${i.name}</td><td class="p-4">${i.quantity} ${i.unit}</td>
+          <td class="p-4">৳${i.standard_rate}</td><td class="p-4 font-bold">৳${i.quoted_rate}</td>
+          <td class="p-4 font-extrabold ${i.rate_variance_pct > 20 ? 'text-rose-600' : 'text-emerald-700'}">${i.rate_variance_pct}%</td>
+          <td class="p-4"><span class="px-2.5 py-1 rounded-full text-xs font-bold ${i.flag.includes('INFLATED') ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}">${i.flag}</span></td>
         </tr>
       `).join('');
       document.getElementById('boqResultPanel').classList.remove('hidden');
@@ -886,7 +886,7 @@
         const marker = L.marker([h.lat, h.lng]).addTo(mapInstance).bindPopup(`<b>${h.title}</b><br>Upvotes: ${h.upvotes}`);
         const circle = L.circle([h.lat, h.lng], { radius: 100, color: '#059669', fillOpacity: 0.12, weight: 1 }).addTo(mapInstance);
         mapLayers.push(marker, circle);
-        return `<div class="p-2.5 bg-white border rounded-xl flex items-center justify-between text-xs"><span><b>${h.title}</b></span><button onclick="upvoteHazard(${h.id})" class="bg-emerald-50 text-emerald-800 font-bold px-2.5 py-1 rounded">▲ ${h.upvotes}</button></div>`;
+        return `<div class="p-3 bg-white border rounded-2xl flex items-center justify-between text-xs shadow-sm"><span><b>${h.title}</b></span><button onclick="upvoteHazard(${h.id})" class="bg-emerald-50 text-emerald-800 font-bold px-3 py-1.5 rounded-xl">▲ ${h.upvotes}</button></div>`;
       }).join('');
     }
 
@@ -940,7 +940,7 @@
       document.getElementById('admResolved').textContent = data.resolved_complaints;
       document.getElementById('admUsers').textContent = data.total_users;
       document.getElementById('admHazards').textContent = data.total_hazards;
-      document.getElementById('auditLogBody').innerHTML = data.audit_logs.map(l => `<tr><td class="p-3 font-mono">#${l.id}</td><td class="p-3 font-bold">${l.actor_role}</td><td class="p-3">${l.action}</td><td class="p-3 text-slate-500">${l.timestamp}</td></tr>`).join('');
+      document.getElementById('auditLogBody').innerHTML = data.audit_logs.map(l => `<tr><td class="p-4 font-mono">#${l.id}</td><td class="p-4 font-bold">${l.actor_role}</td><td class="p-4">${l.action}</td><td class="p-4 text-slate-500">${l.timestamp}</td></tr>`).join('');
     }
 
     window.onload = () => {
