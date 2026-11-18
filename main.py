@@ -9,11 +9,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from dotenv import load_dotenv
 
-load_dotenv()
+# আপনার প্রদানকৃত Neon PostgreSQL ডাটাবেজ URL
+DATABASE_URL = "postgresql://neondb_owner:npg_IKCmYNoWdF47@ep-wild-smoke-be5euaix-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
-DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 app = FastAPI(title="CivicSphere AI", version="2.5")
 
 # Serve static folder for index.html
@@ -116,9 +115,9 @@ def init_db():
         conn.commit()
         cur.close()
         conn.close()
-        print("Supabase DB initialized successfully via FastAPI.")
+        print("Neon DB initialized successfully via FastAPI.")
     except Exception as e:
-        print("DB Init Error:", e)
+        print("Neon DB Init Error:", e)
 
 @app.on_event("startup")
 def startup_event():
@@ -356,6 +355,7 @@ def post_hazard(req: HazardReq):
 
 @app.post("/api/hazards/{hazard_id}/upvote")
 def upvote_hazard(hazard_id: int):
+    conn = and_conn = get_db() if 'get_db' in globals() else None # keeping original style
     conn = get_db()
     cur = conn.cursor()
     cur.execute("UPDATE hazards SET upvotes = upvotes + 1 WHERE id = %s", (hazard_id,))
