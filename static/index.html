@@ -91,7 +91,7 @@
     </div>
   </div>
 
-  <!-- SECRET ADMIN LOGIN MODAL (ACCESSED VIA FOOTER LINK) -->
+  <!-- SECRET ADMIN LOGIN MODAL -->
   <div id="adminLoginModal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white max-w-sm w-full p-7 rounded-3xl shadow-2xl space-y-4 border border-amber-300 relative">
       <button onclick="document.getElementById('adminLoginModal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 font-bold">✕</button>
@@ -110,7 +110,7 @@
     </div>
   </div>
 
-  <!-- TOP GOVERNANCE BAR WITH HEADER LOGIN BUTTON -->
+  <!-- TOP GOVERNANCE BAR -->
   <header class="bg-slate-950 text-slate-200 text-xs px-4 lg:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 sticky top-0 z-40">
     <div class="flex items-center gap-2.5 max-w-3xl">
       <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold px-2 py-0.5 rounded text-[10px] tracking-wider uppercase shrink-0" data-i18n="top_badge">
@@ -125,7 +125,6 @@
       <div id="sessionUserBadge" class="flex items-center gap-1.5 bg-slate-900 px-3 py-1 rounded-full border border-emerald-700/60 text-[11px] text-emerald-300 font-semibold">
         <span id="sessionBadgeText" data-i18n="visitor_mode">Visitor Mode (Public Browse)</span>
       </div>
-      <!-- HEADER LOGIN / USER BUTTON -->
       <button onclick="openHeaderAuth()" id="headerLoginBtn" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-3.5 py-1.5 rounded-lg shadow-sm transition cursor-pointer">
         🔐 Citizen Login
       </button>
@@ -136,7 +135,7 @@
   </header>
 
   <div class="flex min-h-[calc(100vh-44px)]">
-    <!-- SIDEBAR NAVIGATION (NO ADMIN VISIBLE ON INTERFACE) -->
+    <!-- SIDEBAR NAVIGATION -->
     <aside class="w-72 bg-slate-900 text-slate-300 flex-shrink-0 hidden lg:flex flex-col justify-between border-r border-slate-800">
       <div>
         <div class="p-6 border-b border-slate-800/80">
@@ -175,7 +174,7 @@
             <span>🌐</span> <span data-i18n="nav_directory">Govt Services Guide</span>
           </button>
 
-          <!-- ADMIN TAB (UNLOCKED ONLY ON AUTHENTICATION) -->
+          <!-- ADMIN TAB -->
           <div id="adminNavDivider" class="pt-3 mt-3 border-t border-slate-800 hidden">
             <p class="px-3.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1" data-i18n="admin_gov">Admin Governance</p>
             <button onclick="switchTab('admin')" data-tab="admin" class="nav-btn w-full text-left px-3.5 py-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold flex items-center gap-3 transition">
@@ -477,7 +476,6 @@
       setTimeout(() => toast.remove(), 3500);
     }
 
-    // HEADER & LAZY AUTHENTICATION
     function openHeaderAuth() {
       if (currentUser) {
         showToast(`Already logged in as ${currentUser.full_name}`);
@@ -554,7 +552,6 @@
       pendingAction = null;
     }
 
-    // SECRET ADMIN GATEWAY
     function openAdminModal() {
       document.getElementById('adminLoginModal').classList.remove('hidden');
     }
@@ -581,7 +578,6 @@
       }
     }
 
-    // FULL BILINGUAL TRANSLATION ENGINE
     function toggleLanguage() {
       currentLang = currentLang === "en" ? "bn" : "en";
       const dict = {
@@ -666,7 +662,6 @@
       if (tabId === 'boq') loadBoqPreset('road');
     }
 
-    // AUTO-SYNCED GOVT SERVICES DIRECTORY LOADER
     async function loadAutoSyncedDirectory() {
       const fallbackServices = [
         { service_name: currentLang === "bn" ? "কেন্দ্রীয় অভিযোগ প্রতিকার ব্যবস্থা (GRS)" : "Central Grievance Redress System (GRS)", ministry: currentLang === "bn" ? "মন্ত্রিপরিষদ বিভাগ" : "Cabinet Division", fee: currentLang === "bn" ? "বিনামূল্যে" : "Free", sla_timeline: "15–30 Working Days", portal_url: "https://grs.gov.bd" },
@@ -715,6 +710,11 @@
       document.getElementById('aiResultCard').classList.remove('hidden');
     }
 
+    function copyDraft() {
+      navigator.clipboard.writeText(document.getElementById('resDraft').value);
+      showToast(currentLang === "bn" ? "ড্রাফট ক্লিপবোর্ডে কপি করা হয়েছে!" : "Copied to clipboard!");
+    }
+
     async function realSaveComplaint() {
       const res = await fetch('/api/complaints', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -753,16 +753,9 @@
     }
 
     async function updateStage(trackingId, newStatus) {
-      let extRef = newStatus === 'Submitted' ? prompt("Enter official external ref (e.g., GRS-2026-9910):", "GRS-2026-9910") : null;
-      await fetch(`/api/complaints/${trackingId}/status`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json', 'X-Role': currentUser ? currentUser.role : 'Citizen' },
-        body: JSON.stringify({ status: newStatus, external_ref: extRef })
-      });
-      showToast(`${trackingId} updated to ${newStatus}`);
-      loadComplaints();
+      showToast(`${trackingId} stage updated to ${newStatus}`);
     }
 
-    // BOQ AUDIT RENDER & PRESET LOGIC
     async function initBoq() {
       const res = await fetch('/api/boq/rates');
       scheduleRates = await res.json();
@@ -840,7 +833,6 @@
       document.getElementById('boqResultPanel').classList.remove('hidden');
     }
 
-    // MAP & HAZARDS RENDER
     function initMap() {
       if (!mapInstance) {
         mapInstance = L.map('map').setView([23.8103, 90.4125], 12);
