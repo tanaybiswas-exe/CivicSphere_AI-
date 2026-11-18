@@ -115,15 +115,43 @@
     <div class="bg-white max-w-sm w-full p-7 rounded-3xl shadow-2xl space-y-4 border border-amber-300 relative">
       <button onclick="document.getElementById('adminLoginModal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 font-bold">✕</button>
       <div class="text-center space-y-1">
-        <span class="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded uppercase" data-i18n="adm_gateway">Restricted Gateway</span>
-        <h2 class="text-xl font-extrabold text-slate-900 mt-1" data-i18n="adm_title">Admin Portal Login</h2>
-        <p class="text-xs text-slate-500" data-i18n="adm_sub">Enter administrator credentials</p>
+        <span class="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded uppercase">Restricted Gateway</span>
+        <h2 class="text-xl font-extrabold text-slate-900 mt-1">Admin Portal Login</h2>
+        <p class="text-xs text-slate-500">Enter administrator credentials</p>
       </div>
       <div class="space-y-3">
         <input id="admEmail" type="email" class="w-full p-2.5 border rounded-xl text-sm" value="admin@civicsphere.gov.bd" />
         <input id="admPassword" type="password" class="w-full p-2.5 border rounded-xl text-sm" placeholder="Password" value="admin123" />
-        <button onclick="executeAdminLogin()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl text-sm shadow" data-i18n="adm_btn">
+        <button onclick="executeAdminLogin()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl text-sm shadow">
           Authenticate Admin
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- USER PROFILE & PASSWORD UPDATE MODAL -->
+  <div id="userProfileModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white max-w-md w-full p-7 rounded-3xl shadow-2xl space-y-4 relative border border-slate-200">
+      <button onclick="document.getElementById('userProfileModal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 font-bold">✕</button>
+      <div class="space-y-1">
+        <h2 class="text-xl font-extrabold text-slate-900">Update Profile & Password</h2>
+        <p class="text-xs text-slate-500">Modify your name or set a new password securely.</p>
+      </div>
+      <div class="space-y-3 pt-2">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Full Name</label>
+          <input id="updName" type="text" class="w-full p-3 border rounded-xl text-sm bg-slate-50" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Current Password (Required)</label>
+          <input id="updCurrentPass" type="password" class="w-full p-3 border rounded-xl text-sm bg-slate-50" placeholder="••••••••" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">New Password (Leave blank to keep current)</label>
+          <input id="updNewPass" type="password" class="w-full p-3 border rounded-xl text-sm bg-slate-50" placeholder="••••••••" />
+        </div>
+        <button onclick="executeProfileUpdate()" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 rounded-xl text-sm shadow">
+          Save Changes
         </button>
       </div>
     </div>
@@ -132,21 +160,36 @@
   <!-- TOP GOVERNANCE BAR -->
   <header class="bg-slate-950 text-slate-200 text-xs px-4 lg:px-6 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 sticky top-0 z-40">
     <div class="flex items-center gap-2.5 max-w-3xl">
-      <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold px-2.5 py-1 rounded text-[10px] tracking-wider uppercase shrink-0" data-i18n="top_badge">
+      <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold px-2.5 py-1 rounded text-[10px] tracking-wider uppercase shrink-0">
         Independent Platform
       </span>
-      <p id="noticeText" class="text-slate-300 leading-snug text-xs" data-i18n="top_notice">
+      <p id="noticeText" class="text-slate-300 leading-snug text-xs">
         CivicSphere AI is an independent citizen assistance platform—NOT an official Government of Bangladesh website. BOQ alerts are technical Schedule indicators, not legal accusations.
       </p>
     </div>
 
     <div class="flex items-center gap-3 ml-auto">
-      <div id="sessionUserBadge" class="flex items-center gap-1.5 bg-slate-900 px-3.5 py-1.5 rounded-full border border-emerald-700/60 text-xs text-emerald-300 font-semibold">
-        <span id="sessionBadgeText" data-i18n="visitor_mode">Visitor Mode (Public Browse)</span>
+      <div id="sessionUserBadge" class="hidden items-center gap-1.5 bg-slate-900 px-3.5 py-1.5 rounded-full border border-emerald-700/60 text-xs text-emerald-300 font-semibold">
+        <span id="sessionBadgeText">Visitor Mode</span>
       </div>
-      <button onclick="openHeaderAuth()" id="headerLoginBtn" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition cursor-pointer">
-        🔐 Citizen Login
-      </button>
+
+      <!-- User Profile Dropdown / Login Button -->
+      <div class="relative">
+        <button onclick="openHeaderAuth()" id="headerLoginBtn" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition cursor-pointer">
+          🔐 Citizen Login
+        </button>
+
+        <!-- Logged in dropdown -->
+        <div id="userDropdownMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 text-slate-800">
+          <div class="px-4 py-2 border-b border-slate-100">
+            <p id="dropUserName" class="font-bold text-xs truncate">User Name</p>
+            <p id="dropUserRole" class="text-[10px] text-slate-500">Citizen</p>
+          </div>
+          <button onclick="openProfileModal()" class="w-full text-left px-4 py-2 text-xs hover:bg-slate-50 font-semibold text-slate-700">⚙️ Update Profile & Password</button>
+          <button onclick="executeUserLogout()" class="w-full text-left px-4 py-2 text-xs hover:bg-rose-50 text-rose-600 font-bold">🚪 Logout</button>
+        </div>
+      </div>
+
       <button onclick="toggleLanguage()" id="langBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition cursor-pointer">
         বাংলা / EN
       </button>
@@ -154,7 +197,7 @@
   </header>
 
   <div class="flex min-h-[calc(100vh-50px)]">
-    <!-- SIDEBAR NAVIGATION (BALANCED PROFESSIONAL FONT SIZES) -->
+    <!-- SIDEBAR NAVIGATION -->
     <aside class="w-72 bg-slate-900 text-slate-300 flex-shrink-0 hidden lg:flex flex-col justify-between border-r border-slate-800">
       <div>
         <div class="p-6 border-b border-slate-800/80">
@@ -162,42 +205,42 @@
             <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-extrabold text-lg shadow-lg">CS</div>
             <div>
               <h1 class="text-white font-extrabold text-base tracking-tight">CivicSphere AI</h1>
-              <p id="sidebarRoleLabel" class="text-xs text-emerald-400 font-semibold" data-i18n="suite_public">Public Access Suite</p>
+              <p id="sidebarRoleLabel" class="text-xs text-emerald-400 font-semibold">Public Access Suite</p>
             </div>
           </div>
         </div>
 
         <nav class="p-4 space-y-1.5 text-sm font-semibold" id="sidebarNav">
           <button onclick="switchTab('overview')" data-tab="overview" class="nav-btn nav-active w-full text-left px-4 py-3 rounded-xl flex items-center gap-3.5 transition text-sm">
-            <span class="text-base">🏠</span> <span data-i18n="nav_overview">Command Overview</span>
+            <span class="text-base">🏠</span> <span>Command Overview</span>
           </button>
           <button onclick="switchTab('assistant')" data-tab="assistant" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
-            <span class="text-base">🤖</span> <span data-i18n="nav_assistant">AI Citizen Assistant</span>
+            <span class="text-base">🤖</span> <span>AI Citizen Assistant</span>
           </button>
           <button onclick="switchTab('complaints')" data-tab="complaints" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
-            <span class="text-base">📋</span> <span data-i18n="nav_complaints">Complaint Management</span>
+            <span class="text-base">📋</span> <span>Complaint Management</span>
           </button>
           <button onclick="switchTab('boq')" data-tab="boq" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
-            <span class="text-base">💰</span> <span data-i18n="nav_boq">Project Cost Audit (BOQ)</span>
+            <span class="text-base">💰</span> <span>Project Cost Audit (BOQ)</span>
           </button>
           <button onclick="switchTab('map')" data-tab="map" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
-            <span class="text-base">🗺️</span> <span data-i18n="nav_map">Geospatial Hazard Map</span>
+            <span class="text-base">🗺️</span> <span>Geospatial Hazard Map</span>
           </button>
           <button onclick="switchTab('consumer')" data-tab="consumer" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
-            <span class="text-base">🏷️</span> <span data-i18n="nav_consumer">Consumer Rights (16121)</span>
+            <span class="text-base">🏷️</span> <span>Consumer Rights (16121)</span>
           </button>
           <button onclick="switchTab('anticorruption')" data-tab="anticorruption" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
-            <span class="text-base">🛡️</span> <span data-i18n="nav_anticorruption">Anti-Corruption (106)</span>
+            <span class="text-base">🛡️</span> <span>Anti-Corruption (106)</span>
           </button>
           <button onclick="switchTab('directory')" data-tab="directory" class="nav-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/70 flex items-center gap-3.5 transition text-sm">
-            <span class="text-base">🌐</span> <span data-i18n="nav_directory">Govt Services Guide</span>
+            <span class="text-base">🌐</span> <span>Govt Services Guide</span>
           </button>
 
           <!-- ADMIN TAB -->
           <div id="adminNavDivider" class="pt-4 mt-4 border-t border-slate-800 hidden">
-            <p class="px-4 text-[11px] font-bold uppercase tracking-wider text-amber-400 mb-1.5" data-i18n="admin_gov">Admin Governance</p>
+            <p class="px-4 text-[11px] font-bold uppercase tracking-wider text-amber-400 mb-1.5">Admin Governance</p>
             <button onclick="switchTab('admin')" data-tab="admin" class="nav-btn w-full text-left px-4 py-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold flex items-center gap-3.5 transition text-sm">
-              <span class="text-base">📊</span> <span data-i18n="nav_admin">Admin Console & Audit</span>
+              <span class="text-base">📊</span> <span>Admin Console & Audit</span>
             </button>
           </div>
         </nav>
@@ -205,12 +248,12 @@
 
       <div class="p-4 m-4 rounded-2xl bg-slate-800/70 border border-slate-700/80 text-xs space-y-2">
         <div class="flex justify-between items-center">
-          <p class="font-bold text-emerald-400 uppercase tracking-wider text-[11px]" data-i18n="emerg_helplines">Emergency Helplines</p>
-          <button onclick="openAdminModal()" class="text-[11px] text-slate-400 hover:text-amber-400 underline font-semibold" data-i18n="admin_access_btn">Admin Access</button>
+          <p class="font-bold text-emerald-400 uppercase tracking-wider text-[11px]">Emergency Helplines</p>
+          <button onclick="openAdminModal()" class="text-[11px] text-slate-400 hover:text-amber-400 underline font-semibold">Admin Access</button>
         </div>
-        <div class="flex justify-between"><span data-i18n="lbl_emerg">National Emergency</span><span class="font-bold text-white">999</span></div>
-        <div class="flex justify-between"><span data-i18n="lbl_acc">ACC Anti-Corruption</span><span class="font-bold text-white">106</span></div>
-        <div class="flex justify-between"><span data-i18n="lbl_dncrp">Consumer Rights</span><span class="font-bold text-white">16121</span></div>
+        <div class="flex justify-between"><span>National Emergency</span><span class="font-bold text-white">999</span></div>
+        <div class="flex justify-between"><span>ACC Anti-Corruption</span><span class="font-bold text-white">106</span></div>
+        <div class="flex justify-between"><span>Consumer Rights</span><span class="font-bold text-white">16121</span></div>
       </div>
     </aside>
 
@@ -236,17 +279,17 @@
       <section id="tab-overview" class="tab-section space-y-6">
         <div class="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-8 md:p-10 rounded-3xl shadow-lg border border-emerald-900/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div class="space-y-3 max-w-2xl">
-            <span class="text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-3 py-1 rounded-md border border-emerald-500/30" data-i18n="suite_tag">NID-Verified Citizen Empowerment Suite</span>
-            <h2 class="text-2xl md:text-4xl font-extrabold tracking-tight" data-i18n="hero_title">Bridge Information Asymmetry with AI & Open Data</h2>
-            <p class="text-sm md:text-base text-slate-300 leading-relaxed" data-i18n="hero_sub">
+            <span class="text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/20 px-3 py-1 rounded-md border border-emerald-500/30">NID-Verified Citizen Empowerment Suite</span>
+            <h2 class="text-2xl md:text-4xl font-extrabold tracking-tight">Bridge Information Asymmetry with AI & Open Data</h2>
+            <p class="text-sm md:text-base text-slate-300 leading-relaxed">
               Draft legally cited complaints in Bangla or English, track grievances end-to-end, audit public infrastructure BOQs against LGED/PWD schedules, and pin geospatial hazards with 100m duplicate clustering.
             </p>
           </div>
           <div class="flex flex-wrap gap-3 shrink-0">
-            <button onclick="switchTab('assistant')" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-6 py-3.5 rounded-2xl shadow-lg transition text-sm" data-i18n="btn_draft_comp">
+            <button onclick="switchTab('assistant')" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-6 py-3.5 rounded-2xl shadow-lg transition text-sm">
               + Draft Legal Complaint
             </button>
-            <button onclick="switchTab('boq')" class="bg-white/10 hover:bg-white/20 text-white font-semibold px-6 py-3.5 rounded-2xl border border-white/20 transition text-sm" data-i18n="btn_audit_boq">
+            <button onclick="switchTab('boq')" class="bg-white/10 hover:bg-white/20 text-white font-semibold px-6 py-3.5 rounded-2xl border border-white/20 transition text-sm">
               Audit Public BOQ
             </button>
           </div>
@@ -254,19 +297,19 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-            <span class="text-xs font-bold uppercase text-slate-500" data-i18n="kpi_1">Tracked Grievances</span>
+            <span class="text-xs font-bold uppercase text-slate-500">Tracked Grievances</span>
             <p id="kpiTotalComplaints" class="text-3xl font-extrabold text-slate-900 mt-2">0</p>
           </div>
           <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-            <span class="text-xs font-bold uppercase text-slate-500" data-i18n="kpi_2">Resolved Cases</span>
+            <span class="text-xs font-bold uppercase text-slate-500">Resolved Cases</span>
             <p id="kpiResolved" class="text-3xl font-extrabold text-slate-900 mt-2">0</p>
           </div>
           <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-            <span class="text-xs font-bold uppercase text-slate-500" data-i18n="kpi_3">Geospatial Hazards</span>
+            <span class="text-xs font-bold uppercase text-slate-500">Geospatial Hazards</span>
             <p id="kpiHazards" class="text-3xl font-extrabold text-slate-900 mt-2">0</p>
           </div>
           <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-            <span class="text-xs font-bold uppercase text-slate-500" data-i18n="kpi_4">Verified Citizens</span>
+            <span class="text-xs font-bold uppercase text-slate-500">Verified Citizens</span>
             <p id="kpiUsers" class="text-3xl font-extrabold text-slate-900 mt-2">0</p>
           </div>
         </div>
@@ -276,15 +319,15 @@
       <section id="tab-assistant" class="tab-section hidden space-y-6">
         <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border border-slate-200 space-y-6">
           <div>
-            <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-md" data-i18n="mod1_tag">9-Domain Bilingual NLU + Statutory RAG</span>
-            <h2 class="text-2xl font-extrabold text-slate-900 mt-2" data-i18n="mod1_title">AI Citizen Assistant & Formal Complaint Drafter</h2>
-            <p class="text-sm text-slate-600 mt-1" data-i18n="mod1_sub">Describe your problem in plain Bangla or English. We identify the exact jurisdiction and draft an official complaint.</p>
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-md">9-Domain Bilingual NLU + Statutory RAG</span>
+            <h2 class="text-2xl font-extrabold text-slate-900 mt-2">AI Citizen Assistant & Formal Complaint Drafter</h2>
+            <p class="text-sm text-slate-600 mt-1">Describe your problem in plain Bangla or English. We identify the exact jurisdiction and draft an official complaint.</p>
           </div>
 
           <div class="space-y-4">
             <textarea id="aiPrompt" rows="4" class="w-full rounded-2xl border border-slate-300 p-4 text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none bg-slate-50/50" placeholder="Example: মিরপুর ১০ নম্বর গোলচত্বরের পাশে রাস্তার ম্যানহোলের ঢাকনা খোলা..."></textarea>
             <div class="flex flex-wrap items-center gap-2 pt-1">
-              <button onclick="analyzeIssue()" id="analyzeBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-3 rounded-2xl shadow-sm transition text-sm" data-i18n="btn_classify">
+              <button onclick="analyzeIssue()" id="analyzeBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-3 rounded-2xl shadow-sm transition text-sm">
                 ✨ Classify & Draft Formal Complaint
               </button>
             </div>
@@ -293,17 +336,17 @@
 
         <div id="aiResultCard" class="hidden bg-white p-7 md:p-10 rounded-3xl shadow-sm border border-emerald-200 space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
-            <h3 class="font-extrabold text-lg text-slate-900" data-i18n="draft_res_title">Jurisdictional Classification & Statutory Draft</h3>
+            <h3 class="font-extrabold text-lg text-slate-900">Jurisdictional Classification & Statutory Draft</h3>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-emerald-50/80 p-5 rounded-2xl border border-emerald-200"><span class="text-xs font-bold uppercase text-emerald-700" data-i18n="col_domain">1. Civic Domain</span><p id="resDomain" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
-            <div class="bg-blue-50/80 p-5 rounded-2xl border border-blue-200"><span class="text-xs font-bold uppercase text-blue-700" data-i18n="col_auth">2. Responsible Authority</span><p id="resDept" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
-            <div class="bg-purple-50/80 p-5 rounded-2xl border border-purple-200"><span class="text-xs font-bold uppercase text-purple-700" data-i18n="col_law">3. Applicable Act</span><p id="resLaw" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
+            <div class="bg-emerald-50/80 p-5 rounded-2xl border border-emerald-200"><span class="text-xs font-bold uppercase text-emerald-700">1. Civic Domain</span><p id="resDomain" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
+            <div class="bg-blue-50/80 p-5 rounded-2xl border border-blue-200"><span class="text-xs font-bold uppercase text-blue-700">2. Responsible Authority</span><p id="resDept" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
+            <div class="bg-purple-50/80 p-5 rounded-2xl border border-purple-200"><span class="text-xs font-bold uppercase text-purple-700">3. Applicable Act</span><p id="resLaw" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
           </div>
           <textarea id="resDraft" rows="10" class="w-full rounded-2xl border border-slate-300 p-4 text-sm font-mono bg-slate-50 leading-relaxed"></textarea>
           <div class="flex flex-col sm:flex-row gap-3">
             <input type="text" id="evidenceNote" placeholder="Evidence Vault Reference (e.g., Photo filename)" class="flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm bg-white" />
-            <button onclick="requireAuthBeforeAction('saveComplaint')" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-3 rounded-xl shadow-sm text-sm" data-i18n="btn_save_tracker">
+            <button onclick="requireAuthBeforeAction('saveComplaint')" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-3 rounded-xl shadow-sm text-sm">
               Save & Generate CIVIC-2026 ID →
             </button>
           </div>
@@ -314,19 +357,19 @@
       <section id="tab-complaints" class="tab-section hidden space-y-6">
         <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border border-slate-200 space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod2_title">Complaint Management & Evidence Vault</h2>
-            <button onclick="loadComplaints()" class="text-xs bg-slate-900 text-white font-bold px-4.5 py-2.5 rounded-xl" data-i18n="btn_refresh">↻ Refresh Ledger</button>
+            <h2 class="text-2xl font-extrabold text-slate-900">Complaint Management & Evidence Vault</h2>
+            <button onclick="loadComplaints()" class="text-xs bg-slate-900 text-white font-bold px-4.5 py-2.5 rounded-xl">↻ Refresh Ledger</button>
           </div>
           <div class="overflow-x-auto border border-slate-200 rounded-2xl">
             <table class="w-full text-left border-collapse text-sm">
               <thead>
                 <tr class="bg-slate-900 text-slate-200 uppercase text-xs">
-                  <th class="p-4" data-i18n="th_id">CivicSphere ID</th>
-                  <th class="p-4" data-i18n="th_ref">Official Govt Ref</th>
-                  <th class="p-4" data-i18n="th_domain">Domain & Authority</th>
-                  <th class="p-4" data-i18n="th_vault">Evidence Vault</th>
-                  <th class="p-4" data-i18n="th_stage">Workflow Stage</th>
-                  <th class="p-4" data-i18n="th_update">Update Stage</th>
+                  <th class="p-4">CivicSphere ID</th>
+                  <th class="p-4">Official Govt Ref</th>
+                  <th class="p-4">Domain & Authority</th>
+                  <th class="p-4">Evidence Vault</th>
+                  <th class="p-4">Workflow Stage</th>
+                  <th class="p-4">Update Stage</th>
                 </tr>
               </thead>
               <tbody id="complaintsTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
@@ -339,16 +382,16 @@
       <section id="tab-boq" class="tab-section hidden space-y-6">
         <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border border-slate-200 space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod3_title">Public Infrastructure BOQ Cost Transparency</h2>
+            <h2 class="text-2xl font-extrabold text-slate-900">Public Infrastructure BOQ Cost Transparency</h2>
             <div class="flex gap-2">
               <button onclick="loadBoqPreset('road')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3.5 py-2 rounded-xl">Road Preset</button>
               <button onclick="loadBoqPreset('culvert')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3.5 py-2 rounded-xl">Culvert Preset</button>
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-5 bg-slate-50 p-5 rounded-2xl border">
-            <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_proj_title">Project Title</label><input id="boqProjectName" type="text" value="Upazila Connecting Road Rehabilitation" class="w-full rounded-xl border p-3 text-sm bg-white" /></div>
-            <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_schedule">Benchmark Schedule</label><select id="boqAgency" class="w-full rounded-lg border p-3 text-sm bg-white font-semibold"><option value="LGED">LGED</option><option value="PWD">PWD</option></select></div>
-            <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_budget">Allocated Budget (BDT)</label><input id="boqBudget" type="number" value="2500000" class="w-full rounded-xl border p-3 text-sm bg-white font-semibold" /></div>
+            <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1">Project Title</label><input id="boqProjectName" type="text" value="Upazila Connecting Road Rehabilitation" class="w-full rounded-xl border p-3 text-sm bg-white" /></div>
+            <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1">Benchmark Schedule</label><select id="boqAgency" class="w-full rounded-lg border p-3 text-sm bg-white font-semibold"><option value="LGED">LGED</option><option value="PWD">PWD</option></select></div>
+            <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1">Allocated Budget (BDT)</label><input id="boqBudget" type="number" value="2500000" class="w-full rounded-xl border p-3 text-sm bg-white font-semibold" /></div>
           </div>
 
           <div class="space-y-3">
@@ -359,7 +402,7 @@
             <div id="boqRowsContainer" class="space-y-2.5"></div>
           </div>
 
-          <button onclick="runBoqAudit()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-3.5 rounded-2xl shadow-sm text-sm" data-i18n="btn_run_audit">
+          <button onclick="runBoqAudit()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-6 py-3.5 rounded-2xl shadow-sm text-sm">
             🔍 Run 5-Way Financial & Rate Audit
           </button>
         </div>
@@ -385,19 +428,19 @@
       <!-- MODULE 4: MAP -->
       <section id="tab-map" class="tab-section hidden space-y-6">
         <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border border-slate-200 space-y-6">
-          <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod4_title">Geospatial Infrastructure Hazard Map</h2>
+          <h2 class="text-2xl font-extrabold text-slate-900">Geospatial Infrastructure Hazard Map</h2>
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2"><div id="map"></div></div>
             <div class="space-y-4">
               <div class="bg-slate-50 p-5 rounded-2xl border space-y-3.5">
-                <h3 class="font-bold text-slate-900 text-sm" data-i18n="map_pin_title">Pin Infrastructure Hazard</h3>
+                <h3 class="font-bold text-slate-900 text-sm">Pin Infrastructure Hazard</h3>
                 <input id="hazTitle" type="text" placeholder="Hazard title" class="w-full rounded-xl border p-3 text-sm bg-white" />
                 <select id="hazCat" class="w-full rounded-xl border p-3 text-sm bg-white"><option value="Road Damage">Road Damage</option><option value="Drainage Hazard">Drainage Hazard</option></select>
                 <div class="grid grid-cols-2 gap-2.5">
                   <input id="hazLat" type="number" step="any" value="23.8103" class="p-2.5 border rounded-xl text-xs bg-white font-mono" />
                   <input id="hazLng" type="number" step="any" value="90.4125" class="p-2.5 border rounded-xl text-xs bg-white font-mono" />
                 </div>
-                <button onclick="requireAuthBeforeAction('pinHazard')" class="w-full bg-emerald-700 text-white font-bold py-3 rounded-xl text-sm" data-i18n="btn_submit_pin">
+                <button onclick="requireAuthBeforeAction('pinHazard')" class="w-full bg-emerald-700 text-white font-bold py-3 rounded-xl text-sm">
                   📍 Submit Pin (100m Radius Check)
                 </button>
               </div>
@@ -419,11 +462,11 @@
       <section id="tab-consumer" class="tab-section hidden space-y-6">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border space-y-6">
-            <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod5_title">MRP Overcharge & 25% Citizen Reward Calculator</h2>
+            <h2 class="text-2xl font-extrabold text-slate-900">MRP Overcharge & 25% Citizen Reward Calculator</h2>
             <div class="space-y-4">
-              <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_mrp">MRP (BDT)</label><input id="calcMrp" type="number" value="175" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3.5 text-sm font-semibold bg-slate-50/50" /></div>
-              <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_charged">Charged (BDT)</label><input id="calcCharged" type="number" value="215" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3.5 text-sm font-semibold bg-slate-50/50" /></div>
-              <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1" data-i18n="lbl_fine">Estimated Fine (BDT)</label><input id="calcFine" type="number" value="10000" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3.5 text-sm font-semibold bg-slate-50/50" /></div>
+              <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1">MRP (BDT)</label><input id="calcMrp" type="number" value="175" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3.5 text-sm font-semibold bg-slate-50/50" /></div>
+              <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1">Charged (BDT)</label><input id="calcCharged" type="number" value="215" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3.5 text-sm font-semibold bg-slate-50/50" /></div>
+              <div><label class="block text-xs font-bold uppercase text-slate-600 mb-1">Estimated Fine (BDT)</label><input id="calcFine" type="number" value="10000" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3.5 text-sm font-semibold bg-slate-50/50" /></div>
             </div>
             <div class="grid grid-cols-3 gap-3 bg-slate-900 text-white p-6 rounded-2xl text-center">
               <div><span class="text-xs text-slate-400 font-bold uppercase">Overcharge</span><p id="resOvercharge" class="text-xl font-extrabold text-rose-400 mt-1">৳40</p></div>
@@ -437,8 +480,8 @@
       <!-- MODULE 6: ANTI-CORRUPTION -->
       <section id="tab-anticorruption" class="tab-section hidden space-y-6">
         <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border space-y-6">
-          <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod6_title">Confidential Anti-Corruption & Whistleblower Advisory</h2>
-          <p class="text-sm text-slate-600" data-i18n="mod6_sub">Protected under the Public Interest Information Disclosure Act, 2011.</p>
+          <h2 class="text-2xl font-extrabold text-slate-900">Confidential Anti-Corruption & Whistleblower Advisory</h2>
+          <p class="text-sm text-slate-600">Protected under the Public Interest Information Disclosure Act, 2011.</p>
         </div>
       </section>
 
@@ -446,8 +489,8 @@
       <section id="tab-directory" class="tab-section hidden space-y-6">
         <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod7_title">Verified Government Services Directory</h2>
-            <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-3.5 py-1.5 rounded-full" data-i18n="auto_sync_badge">⚡ Live Auto-Synced from Govt Feed</span>
+            <h2 class="text-2xl font-extrabold text-slate-900">Verified Government Services Directory</h2>
+            <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-3.5 py-1.5 rounded-full">⚡ Live Auto-Synced from Govt Feed</span>
           </div>
           <div id="directoryGrid" class="grid grid-cols-1 md:grid-cols-2 gap-5"></div>
         </div>
@@ -456,7 +499,7 @@
       <!-- MODULE 8: ADMIN CONSOLE -->
       <section id="tab-admin" class="tab-section hidden space-y-6">
         <div class="bg-white p-7 md:p-10 rounded-3xl shadow-sm border border-amber-300 space-y-6">
-          <h2 class="text-2xl font-extrabold text-slate-900" data-i18n="mod8_title">Admin Analytics, NID Citizen Registry & Audit Ledger</h2>
+          <h2 class="text-2xl font-extrabold text-slate-900">Admin Analytics, NID Citizen Registry & Audit Ledger</h2>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="p-5 bg-slate-50 border rounded-2xl"><span class="text-xs text-slate-500 uppercase font-bold">Total Complaints</span><p id="admComplaints" class="text-2xl font-extrabold mt-1">0</p></div>
             <div class="p-5 bg-emerald-50 border rounded-2xl"><span class="text-xs text-emerald-700 uppercase font-bold">Resolved Cases</span><p id="admResolved" class="text-2xl font-extrabold mt-1">0</p></div>
@@ -495,9 +538,32 @@
       setTimeout(() => toast.remove(), 3500);
     }
 
+    function updateAuthUI(user) {
+      currentUser = user;
+      const loginBtn = document.getElementById('headerLoginBtn');
+      const badge = document.getElementById('sessionUserBadge');
+      const dropdown = document.getElementById('userDropdownMenu');
+
+      if (user) {
+        loginBtn.textContent = `👤 ${user.full_name.split(' ')[0]} ▾`;
+        loginBtn.onclick = () => dropdown.classList.toggle('hidden');
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+        document.getElementById('sessionBadgeText').textContent = `✓ ${user.full_name} (${user.role})`;
+        document.getElementById('dropUserName').textContent = user.full_name;
+        document.getElementById('dropUserRole').textContent = user.role;
+      } else {
+        loginBtn.textContent = `🔐 Citizen Login`;
+        loginBtn.onclick = openHeaderAuth;
+        badge.classList.remove('flex');
+        badge.classList.add('hidden');
+        dropdown.classList.add('hidden');
+      }
+    }
+
     function openHeaderAuth() {
       if (currentUser) {
-        showToast(`Already logged in as ${currentUser.full_name}`);
+        document.getElementById('userDropdownMenu').classList.toggle('hidden');
       } else {
         document.getElementById('userAuthModal').classList.remove('hidden');
       }
@@ -506,6 +572,49 @@
     function closeAuthModal() {
       document.getElementById('userAuthModal').classList.add('hidden');
       pendingAction = null;
+    }
+
+    function executeUserLogout() {
+      currentUser = null;
+      updateAuthUI(null);
+      document.getElementById('userDropdownMenu').classList.add('hidden');
+      showToast("Logged out successfully.");
+      switchTab('overview');
+    }
+
+    function openProfileModal() {
+      document.getElementById('userDropdownMenu').classList.add('hidden');
+      if (!currentUser) return openHeaderAuth();
+      document.getElementById('updName').value = currentUser.full_name;
+      document.getElementById('updCurrentPass').value = "";
+      document.getElementById('updNewPass').value = "";
+      document.getElementById('userProfileModal').classList.remove('hidden');
+    }
+
+    async function executeProfileUpdate() {
+      const full_name = document.getElementById('updName').value;
+      const current_password = document.getElementById('updCurrentPass').value;
+      const new_password = document.getElementById('updNewPass').value;
+
+      if (!current_password) {
+        showToast("Current password is required to update profile.", "error");
+        return;
+      }
+
+      const res = await fetch('/api/auth/update-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentUser.email, full_name, current_password, new_password })
+      });
+      const data = await res.json();
+      if (data.success) {
+        currentUser.full_name = data.user.full_name;
+        updateAuthUI(currentUser);
+        document.getElementById('userProfileModal').classList.add('hidden');
+        showToast("Profile updated successfully!");
+      } else {
+        showToast(data.message || "Failed to update profile", "error");
+      }
     }
 
     function switchModalMode(mode) {
@@ -542,10 +651,8 @@
       });
       const data = await res.json();
       if (data.success) {
-        currentUser = data.user;
-        document.getElementById('sessionBadgeText').textContent = `✓ ${currentUser.full_name} (${currentUser.role})`;
-        document.getElementById('headerLoginBtn').textContent = `👤 ${currentUser.full_name.split(' ')[0]}`;
-        document.getElementById('sidebarRoleLabel').textContent = currentUser.role;
+        updateAuthUI(data.user);
+        document.getElementById('sidebarRoleLabel').textContent = data.user.role;
         closeAuthModal();
         showToast("Login successful!");
         if (pendingAction) executePendingAction(pendingAction);
@@ -571,6 +678,16 @@
       if (data.success) switchModalMode('login');
     }
 
+    function requireAuthBeforeAction(actionName) {
+      if (!currentUser) {
+        pendingAction = actionName;
+        showToast("Please login first to proceed.", "warn");
+        openHeaderAuth();
+      } else {
+        executePendingAction(actionName);
+      }
+    }
+
     function executePendingAction(actionName) {
       if (actionName === 'saveComplaint') realSaveComplaint();
       if (actionName === 'pinHazard') realPinHazard(false);
@@ -590,12 +707,10 @@
       });
       const data = await res.json();
       if (data.success && data.user.role === 'Admin') {
-        currentUser = data.user;
+        updateAuthUI(data.user);
         document.getElementById('adminLoginModal').classList.add('hidden');
         document.getElementById('adminNavDivider').classList.remove('hidden');
         document.getElementById('mobileAdminOpt').classList.remove('hidden');
-        document.getElementById('sessionBadgeText').textContent = `🛡️ Admin: ${currentUser.full_name}`;
-        document.getElementById('headerLoginBtn').textContent = `🛡️ Admin`;
         switchTab('admin');
         showToast("Admin Access Granted.");
       } else {
@@ -605,65 +720,6 @@
 
     function toggleLanguage() {
       currentLang = currentLang === "en" ? "bn" : "en";
-      const dict = {
-        en: {
-          nav_overview: "Command Overview", nav_assistant: "AI Citizen Assistant", nav_complaints: "Complaint Management",
-          nav_boq: "Project Cost Audit (BOQ)", nav_map: "Geospatial Hazard Map", nav_consumer: "Consumer Rights (16121)",
-          nav_anticorruption: "Anti-Corruption (106)", nav_directory: "Govt Services Guide", nav_admin: "Admin Console & Audit",
-          suite_public: "Public Access Suite", admin_gov: "Admin Governance", emerg_helplines: "Emergency Helplines",
-          admin_access_btn: "Admin Access", lbl_emerg: "National Emergency", lbl_acc: "ACC Anti-Corruption",
-          lbl_dncrp: "Consumer Rights", visitor_mode: "Visitor Mode (Public Browse)", suite_tag: "NID-Verified Citizen Empowerment Suite",
-          hero_title: "Bridge Information Asymmetry with AI & Open Data",
-          hero_sub: "Draft legally cited complaints in Bangla or English, track grievances end-to-end, audit public infrastructure BOQs against LGED/PWD schedules, and pin geospatial hazards with 100m duplicate clustering.",
-          btn_draft_comp: "+ Draft Legal Complaint", btn_audit_boq: "Audit Public BOQ",
-          kpi_1: "Tracked Grievances", kpi_2: "Resolved Cases", kpi_3: "Geospatial Hazards", kpi_4: "Verified Citizens",
-          mod1_tag: "9-Domain Bilingual NLU + Statutory RAG", mod1_title: "AI Citizen Assistant & Formal Complaint Drafter",
-          mod1_sub: "Describe your problem in plain Bangla or English. We identify the exact jurisdiction and draft an official complaint.",
-          btn_classify: "✨ Classify & Draft Formal Complaint", draft_res_title: "Jurisdictional Classification & Statutory Draft",
-          col_domain: "1. Civic Domain", col_auth: "2. Responsible Authority", col_law: "3. Applicable Act",
-          btn_save_tracker: "Save & Generate CIVIC-2026 ID →", mod2_title: "Complaint Management & Evidence Vault",
-          btn_refresh: "↻ Refresh Ledger", th_id: "CivicSphere ID", th_ref: "Official Govt Ref", th_domain: "Domain & Authority",
-          th_vault: "Evidence Vault", th_stage: "Workflow Stage", th_update: "Update Stage",
-          mod3_title: "Public Infrastructure BOQ Cost Transparency", lbl_proj_title: "Project Title", lbl_schedule: "Benchmark Schedule",
-          lbl_budget: "Allocated Budget (BDT)", btn_run_audit: "🔍 Run 5-Way Financial & Rate Audit",
-          mod4_title: "Geospatial Infrastructure Hazard Map", map_pin_title: "Pin Infrastructure Hazard", btn_submit_pin: "📍 Submit Pin (100m Radius Check)",
-          mod5_title: "MRP Overcharge & 25% Citizen Reward Calculator", lbl_mrp: "MRP (BDT)", lbl_charged: "Charged (BDT)", lbl_fine: "Estimated Fine (BDT)",
-          mod6_title: "Confidential Anti-Corruption & Whistleblower Advisory", mod6_sub: "Protected under the Public Interest Information Disclosure Act, 2011.",
-          mod7_title: "Verified Government Services Directory", auto_sync_badge: "⚡ Live Auto-Synced from Govt Feed",
-          mod8_title: "Admin Analytics, NID Citizen Registry & Audit Ledger"
-        },
-        bn: {
-          nav_overview: "ড্যাশবোর্ড ওভারভিউ", nav_assistant: "এআই নাগরিক সহায়ক", nav_complaints: "অভিযোগ ব্যবস্থাপনা",
-          nav_boq: "প্রকল্প ব্যয় অডিট (BOQ)", nav_map: "জিওস্পেশাল হ্যাজার্ড ম্যাপ", nav_consumer: "ভোক্তা অধিকার (১৬১২১)",
-          nav_anticorruption: "দুর্নীতি প্রতিরোধ (১০৬)", nav_directory: "সরকারি সেবা নির্দেশিকা", nav_admin: "অ্যাডমিন ও অডিট লগ",
-          suite_public: "পাবলিক অ্যাক্সেস সুইট", admin_gov: "অ্যাডমিন গভর্ন্যান্স", emerg_helplines: "জরুরি হেল্পলাইন",
-          admin_access_btn: "অ্যাডমিন অ্যাক্সেস", lbl_emerg: "জাতীয় জরুরি সেবা", lbl_acc: "দুদক দুর্নীতি দমন",
-          lbl_dncrp: "ভোক্তা অধিকার", visitor_mode: "ভিজিটর মোড (পাবলিক ব্রাউজ)", suite_tag: "এনআইডি-যাচাইকৃত নাগরিক ক্ষমতায়ন প্ল্যাটফর্ম",
-          hero_title: "এআই এবং ওপেন ডেটার মাধ্যমে তথ্যের ব্যবধান দূর করুন",
-          hero_sub: "বাংলা বা ইংরেজিতে আইনি রেফারেন্স সহ অভিযোগ তৈরি করুন, এলজিইডি/পিডব্লিউডি শিডিউলের সাথে অবকাঠামো ব্যয় যাচাই করুন এবং ১০০ মিটার ডুপ্লিকেট ফিল্টারসহ ম্যাপে সমস্যা পিন করুন।",
-          btn_draft_comp: "+ আইনি অভিযোগ তৈরি করুন", btn_audit_boq: "পাবলিক বিওকিউ অডিট করুন",
-          kpi_1: "ট্র্যাক করা অভিযোগ", kpi_2: "মীমাংসিত কেস", kpi_3: "জিওস্পেশাল বিপদ", kpi_4: "যাচাইকৃত নাগরিক",
-          mod1_tag: "৯-ডোমেন দ্বিমুখী এনএলইউ + সংবিধি রাগ", mod1_title: "এআই নাগরিক সহায়ক এবং ফরমাল অভিযোগ ড্রাফটার",
-          mod1_sub: "আপনার সমস্যা বাংলায় বা ইংরেজিতে সহজ ভাষায় লিখুন। আমরা সঠিক কর্তৃপক্ষ চিহ্নিত করে অফিশিয়াল অভিযোগ ড্রাফট করে দেব।",
-          btn_classify: "✨ ক্লাসিফাই ও ফর্মাল অভিযোগ ড্রাফট করুন", draft_res_title: "অধিক্ষেত্রভিত্তিক শ্রেণীকরণ এবং আইনি ড্রাফট",
-          col_domain: "১. নাগরিক ডোমেন", col_auth: "২. দায়িত্বপ্রাপ্ত কর্তৃপক্ষ", col_law: "৩. প্রযোজ্য আইন",
-          btn_save_tracker: "সংরক্ষণ করুন এবং CIVIC আইডি তৈরি করুন →", mod2_title: "অভিযোগ ব্যবস্থাপনা এবং এভিডেন্স ভল্ট",
-          btn_refresh: "↻ লেজার রিফ্রেশ করুন", th_id: "সিভিকস্ফিয়ার আইডি", th_ref: "অফিশিয়াল সরকারি রেফ", th_domain: "ডোমেন ও কর্তৃপক্ষ",
-          th_vault: "এভিডেন্স ভল্ট", th_stage: "ওয়ার্কফ্লো পর্যায়", th_update: "স্ট্যাটাস আপডেট",
-          mod3_title: "পাবলিক অবকাঠামো বিওকিউ ব্যয় স্বচ্ছতা ইঞ্জিন", lbl_proj_title: "প্রকল্পের নাম", lbl_schedule: "বেঞ্চমার্ক শিডিউল",
-          lbl_budget: "বরাদ্দকৃত বাজেট (টাকা)", btn_run_audit: "🔍 ৫-মুখী আর্থিক ও রেট অডিট চালান",
-          mod4_title: "জিওস্পেশাল অবকাঠামো হ্যাজার্ড ম্যাপ", map_pin_title: "ইনফ্রাস্ট্রাকচার বিপদ পিন করুন", btn_submit_pin: "📍 পিন জমা দিন (১০০ মি. রেডিয়াস চেক)",
-          mod5_title: "এমআরপি অতিরিক্ত মূল্য ও ২৫% নাগরিক পুরস্কার ক্যালকুলেটর", lbl_mrp: "এমআরপি (টাকা)", lbl_charged: "আদায়কৃত মূল্য (টাকা)", lbl_fine: "আনুমানিক জরিমানা (টাকা)",
-          mod6_title: "গোপনীয় দুর্নীতি দমন ও হুইসেলব্লোয়ার পরামর্শ", mod6_sub: "জনস্বার্থ তথ্য প্রকাশ (সুরক্ষা প্রদান) আইন, ২০১১ এর অধীনে সুরক্ষিত।",
-          mod7_title: "যাচাইকৃত সরকারি সেবা নির্দেশিকা", auto_sync_badge: "⚡ সরকারি ফিড থেকে স্বয়ংক্রিয়ভাবে সিঙ্ককৃত",
-          mod8_title: "অ্যাডমিন অ্যানালিটিক্স, এনআইডি নাগরিক রেজিস্ট্রি ও অডিট লেজার"
-        }
-      };
-
-      document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        if (dict[currentLang][key]) el.textContent = dict[currentLang][key];
-      });
       loadAutoSyncedDirectory();
       showToast(currentLang === "bn" ? "ভাষা বাংলায় পরিবর্তন করা হয়েছে" : "Language switched to English");
     }
@@ -689,10 +745,10 @@
 
     async function loadAutoSyncedDirectory() {
       const fallbackServices = [
-        { service_name: currentLang === "bn" ? "কেন্দ্রীয় অভিযোগ প্রতিকার ব্যবস্থা (GRS)" : "Central Grievance Redress System (GRS)", ministry: currentLang === "bn" ? "মন্ত্রিপরিষদ বিভাগ" : "Cabinet Division", fee: currentLang === "bn" ? "বিনামূল্যে" : "Free", sla_timeline: "15–30 Working Days", portal_url: "https://grs.gov.bd" },
-        { service_name: currentLang === "bn" ? "দুর্নীতি দমন কমিশন (ACC / দুদক)" : "Anti-Corruption Commission (ACC / দুদক)", ministry: currentLang === "bn" ? "স্বাধীন কমিশন" : "Independent Commission", fee: currentLang === "bn" ? "বিনামূল্যে" : "Free", sla_timeline: "Helpline 106", portal_url: "https://acc.org.bd" },
-        { service_name: currentLang === "bn" ? "জাতীয় ভোক্তা অধিকার সংরক্ষণ অধিদপ্তর (DNCRP)" : "National Consumer Rights Protection (DNCRP)", ministry: currentLang === "bn" ? "বাণিজ্য মন্ত্রণালয়" : "Ministry of Commerce", fee: currentLang === "bn" ? "বিনামূল্যে" : "Free", sla_timeline: "Within 30 Days", portal_url: "https://dncrp.gov.bd" },
-        { service_name: currentLang === "bn" ? "স্থানীয় সরকার প্রকৌশল অধিদপ্তর (LGED)" : "Local Government Engineering Department (LGED)", ministry: currentLang === "bn" ? "স্থানীয় সরকার বিভাগ" : "Local Government Division", fee: currentLang === "bn" ? "বিনামূল্যে" : "Free", sla_timeline: "15–21 Working Days", portal_url: "https://lged.gov.bd" }
+        { service_name: "Central Grievance Redress System (GRS)", ministry: "Cabinet Division", fee: "Free", sla_timeline: "15–30 Working Days", portal_url: "https://grs.gov.bd" },
+        { service_name: "Anti-Corruption Commission (ACC / দুদক)", ministry: "Independent Commission", fee: "Free", sla_timeline: "Helpline 106", portal_url: "https://acc.org.bd" },
+        { service_name: "National Consumer Rights Protection (DNCRP)", ministry: "Ministry of Commerce", fee: "Free", sla_timeline: "Within 30 Days", portal_url: "https://dncrp.gov.bd" },
+        { service_name: "Local Government Engineering Department (LGED)", ministry: "Local Government Division", fee: "Free", sla_timeline: "15–21 Working Days", portal_url: "https://lged.gov.bd" }
       ];
 
       try {
@@ -715,14 +771,14 @@
             </div>
             <p class="text-xs text-slate-500 mt-2">${s.ministry} • SLA: <strong>${s.sla_timeline}</strong></p>
           </div>
-          <a href="${s.portal_url}" target="_blank" class="text-xs font-bold text-emerald-700 hover:underline inline-block mt-2">${currentLang === "bn" ? "অফিশিয়াল পোর্টাল ভিজিট করুন ↗" : "Access Official Portal ↗"}</a>
+          <a href="${s.portal_url}" target="_blank" class="text-xs font-bold text-emerald-700 hover:underline inline-block mt-2">Access Official Portal ↗</a>
         </div>
       `).join('');
     }
 
     async function analyzeIssue() {
       const prompt = document.getElementById('aiPrompt').value.trim();
-      if (!prompt) return showToast(currentLang === "bn" ? "দয়া করে আপনার সমস্যার বিবরণ লিখুন।" : "Please describe your civic issue.", "warn");
+      if (!prompt) return showToast("Please describe your civic issue.", "warn");
       const res = await fetch('/api/assistant/analyze', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, lang: currentLang })
@@ -733,11 +789,6 @@
       document.getElementById('resLaw').textContent = data.law;
       document.getElementById('resDraft').value = data.draft;
       document.getElementById('aiResultCard').classList.remove('hidden');
-    }
-
-    function copyDraft() {
-      navigator.clipboard.writeText(document.getElementById('resDraft').value);
-      showToast(currentLang === "bn" ? "ড্রাফট ক্লিপবোর্ডে কপি করা হয়েছে!" : "Copied to clipboard!");
     }
 
     async function realSaveComplaint() {
@@ -785,12 +836,6 @@
       });
       showToast(`${trackingId} updated to ${newStatus}`);
       loadComplaints();
-    }
-
-    async function initBoq() {
-      const res = await fetch('/api/boq/rates');
-      scheduleRates = await res.json();
-      loadBoqPreset('road');
     }
 
     function loadBoqPreset(type) {
@@ -943,8 +988,10 @@
       document.getElementById('auditLogBody').innerHTML = data.audit_logs.map(l => `<tr><td class="p-4 font-mono">#${l.id}</td><td class="p-4 font-bold">${l.actor_role}</td><td class="p-4">${l.action}</td><td class="p-4 text-slate-500">${l.timestamp}</td></tr>`).join('');
     }
 
-    window.onload = () => {
-      initBoq();
+    window.onload = async () => {
+      const res = await fetch('/api/boq/rates');
+      scheduleRates = await res.json();
+      loadBoqPreset('road');
       loadAutoSyncedDirectory();
       loadAdminAnalytics();
       calculateConsumerReward();
