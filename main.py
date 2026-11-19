@@ -20,16 +20,29 @@ load_dotenv()
 
 app = FastAPI(title="NagorikBondhu — নাগরিক বন্ধু AI", version="3.1")
 
+
+def _clean_db_url(url: str) -> str:
+    if not url:
+        return ""
+    return (
+        url.replace("&channel_binding=require", "")
+        .replace("?channel_binding=require&", "?")
+        .replace("?channel_binding=require", "")
+    )
+
+
 # Neon PostgreSQL Database URL
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://neondb_owner:npg_IKCmYNoWdF47@ep-wild-smoke-be5euaix-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-).strip()
+DATABASE_URL = _clean_db_url(
+    os.getenv(
+        "DATABASE_URL",
+        "postgresql://neondb_owner:npg_IKCmYNoWdF47@ep-wild-smoke-be5euaix-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+    ).strip()
+)
 
 # OpenAI API Key
 OPENAI_API_KEY = os.getenv(
     "OPENAI_API_KEY",
-    "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"
+    "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",
 ).strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
 
@@ -47,15 +60,15 @@ _DB_INITIALIZED = False
 
 
 def _raw_connect():
-    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor, connect_timeout=10)
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor, connect_timeout=15)
 
 
 def ensure_db_ready():
     global _DB_INITIALIZED
     if _DB_INITIALIZED:
         return
-    init_db()
-    _DB_INITIALIZED = True
+    if init_db():
+        _DB_INITIALIZED = True
 
 
 def get_db():
@@ -104,10 +117,10 @@ def call_ai_text(prompt_text: str, system_instruction: str = "") -> str | None:
     return None
 
 
-def init_db():
+def init_db() -> bool:
     if not DATABASE_URL:
         print("DATABASE_URL not found!")
-        return
+        return False
     try:
         conn = _raw_connect()
         cur = conn.cursor()
@@ -219,8 +232,10 @@ def init_db():
         cur.close()
         conn.close()
         print("NagorikBondhu Neon DB initialized successfully.")
+        return True
     except Exception as e:
         print("Neon DB Init Error:", e)
+        return False
 
 
 @app.on_event("startup")
@@ -397,15 +412,20 @@ def login(req: LoginReq):
     if ident_phone.startswith("880") and len(ident_phone) == 13:
         ident_phone = "0" + ident_phone[3:]
 
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT * FROM users WHERE (LOWER(email) = %s OR phone = %s) AND password_hash = %s",
-        (ident_email, ident_phone, hash_pw(req.password))
-    )
-    user = cur.fetchone()
-    cur.close()
-    conn.close()
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT * FROM users WHERE (LOWER(email) = %s OR phone = %s) AND password_hash = %s",
+            (ident_email, ident_phone, hash_pw(req.password))
+        )
+        user = cur.fetchone()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print("Login DB Error:", e)
+        raise HTTPException(status_code=500, detail=f"ডাটাবেজ সংযোগ ত্রুটি: {str(e)}")
+
     if user:
         log_audit(user["role"], f"লগইন সেশন ({user['email']})", f"USR-{user['id']}")
         return {
@@ -477,7 +497,7 @@ def register(req: RegReq):
         raise
     except Exception as e:
         print("Register Error:", e)
-        raise HTTPException(status_code=500, detail=f"সার্ভার ত্রুটি: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"ডাটাবেজ ত্রুটি: {str(e)}")
 
 
 class UpdateProfileReq(BaseModel):
