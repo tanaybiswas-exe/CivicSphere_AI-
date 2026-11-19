@@ -391,12 +391,17 @@ class LoginReq(BaseModel):
 
 @app.post("/api/auth/login")
 def login(req: LoginReq):
-    ident = (req.identifier or req.email or "").strip().lower()
+    raw_ident = (req.identifier or req.email or "").strip()
+    ident_email = raw_ident.lower()
+    ident_phone = re.sub(r"\D", "", raw_ident)
+    if ident_phone.startswith("880") and len(ident_phone) == 13:
+        ident_phone = "0" + ident_phone[3:]
+
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
         "SELECT * FROM users WHERE (LOWER(email) = %s OR phone = %s) AND password_hash = %s",
-        (ident, ident, hash_pw(req.password))
+        (ident_email, ident_phone, hash_pw(req.password))
     )
     user = cur.fetchone()
     cur.close()
