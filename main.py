@@ -3,27 +3,88 @@ import math
 import hashlib
 import random
 import json
+import shutil
+import urllib.request
+import urllib.error
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Neon PostgreSQL Database URL
-DATABASE_URL = "postgresql://neondb_owner:npg_IKCmYNoWdF47@ep-wild-smoke-be5euaix-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://neondb_owner:npg_IKCmYNoWdF47@ep-wild-smoke-be5euaix-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+).strip()
 
-app = FastAPI(title="NagorikBondhu — নাগরিকবন্ধু AI", version="3.0")
+# OpenAI API Key
+OPENAI_API_KEY = os.getenv(
+    "OPENAI_API_KEY",
+    "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"
+).strip()
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+app = FastAPI(title="NagorikBondhu — নাগরিকবন্ধু AI", version="3.1")
 
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+
 def get_db():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
+
 def hash_pw(pw: str) -> str:
     return hashlib.sha256(pw.encode("utf-8")).hexdigest()
+
+
+def call_ai_text(prompt_text: str, system_instruction: str = "") -> str | None:
+    if not OPENAI_API_KEY:
+        return None
+    url = "https://api.openai.com/v1/chat/completions"
+    messages = []
+    if system_instruction:
+        messages.append({"role": "system", "content": system_instruction})
+    messages.append({"role": "user", "content": prompt_text})
+
+    payload = {
+        "model": OPENAI_MODEL,
+        "messages": messages,
+        "temperature": 0.4,
+    }
+
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+            choices = body.get("choices") or []
+            if choices:
+                content = ((choices[0].get("message") or {}).get("content") or "").strip()
+                if content:
+                    return content
+    except Exception as e:
+        print("OpenAI API fallback:", e)
+    return None
+
 
 def init_db():
     if not DATABASE_URL:
@@ -63,7 +124,6 @@ def init_db():
             created_at TEXT
         )
         """)
-        # কলাম না থাকলে যোগ করে নেওয়া (পুরানো ডেটা অক্ষুণ্ণ রাখতে)
         cur.execute("ALTER TABLE complaints ADD COLUMN IF NOT EXISTS district TEXT DEFAULT 'ঢাকা'")
         cur.execute("ALTER TABLE complaints ADD COLUMN IF NOT EXISTS area TEXT DEFAULT 'মিরপুর ১০'")
         cur.execute("ALTER TABLE complaints ADD COLUMN IF NOT EXISTS status_history TEXT DEFAULT '[]'")
@@ -101,15 +161,17 @@ def init_db():
         )
         """)
 
-        # Default Users
         cur.execute("SELECT COUNT(*) as cnt FROM users")
         if cur.fetchone()['cnt'] == 0:
-            cur.execute("INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                        ('সিস্টেম অ্যাডমিনিস্ট্রেটর', 'admin@civicsphere.gov.bd', hash_pw('admin123'), '1995547891234', '1995-05-12', 'Admin', 1, '2026-01-01'))
-            cur.execute("INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                        ('তনয় বিশ্বাস বন্ধন', 'tanay@civicsphere.ai', hash_pw('citizen123'), '2000269874512', '2000-04-22', 'Citizen', 1, '2026-01-02'))
+            cur.execute(
+                "INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                ('সিস্টেম অ্যাডমিনিস্ট্রেটর', 'admin@civicsphere.gov.bd', hash_pw('admin123'), '1995547891234', '1995-05-12', 'Admin', 1, '2026-01-01')
+            )
+            cur.execute(
+                "INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                ('তনয় বিশ্বাস বন্ধন', 'tanay@civicsphere.ai', hash_pw('citizen123'), '2000269874512', '2000-04-22', 'Citizen', 1, '2026-01-02')
+            )
 
-        # Default Demo Hazards (যদি খালি থাকে)
         cur.execute("SELECT COUNT(*) as cnt FROM hazards")
         if cur.fetchone()['cnt'] == 0:
             demo_hazards = [
@@ -121,7 +183,6 @@ def init_db():
             for h in demo_hazards:
                 cur.execute("INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s)", h)
 
-        # Default Services
         cur.execute("SELECT COUNT(*) as cnt FROM govt_services")
         if cur.fetchone()['cnt'] == 0:
             services = [
@@ -140,9 +201,11 @@ def init_db():
     except Exception as e:
         print("Neon DB Init Error:", e)
 
+
 @app.on_event("startup")
 def startup_event():
     init_db()
+
 
 @app.get("/", response_class=HTMLResponse)
 def read_index():
@@ -151,17 +214,21 @@ def read_index():
             return f.read()
     return "NagorikBondhu Backend Running. static/index.html not found."
 
+
 def log_audit(role: str, action: str, target_id: str):
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("INSERT INTO audit_logs (actor_role, action, target_id, timestamp) VALUES (%s, %s, %s, %s)",
-                    (role, action, target_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        cur.execute(
+            "INSERT INTO audit_logs (actor_role, action, target_id, timestamp) VALUES (%s, %s, %s, %s)",
+            (role, action, target_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
         conn.commit()
         cur.close()
         conn.close()
     except Exception:
         pass
+
 
 def haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R = 6371000.0
@@ -171,6 +238,7 @@ def haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> floa
     a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
+
 SCHEDULE_RATES = {
     "earthwork_cum": {"name": "মাটি খনন কাজ (Earthwork - প্রতি ঘনমিটার)", "lged": 320.0, "pwd": 340.0, "unit": "m³"},
     "brick_flat_soling_sqm": {"name": "১ম শ্রেণির ইটের সলিং (Brick Soling - প্রতি বর্গমিটার)", "lged": 680.0, "pwd": 710.0, "unit": "m²"},
@@ -179,9 +247,121 @@ SCHEDULE_RATES = {
     "bituminous_carpeting_sqm": {"name": "২৫মিমি বিটুমিনাস কার্পেটিং (প্রতি বর্গমিটার)", "lged": 890.0, "pwd": 920.0, "unit": "m²"},
 }
 
+
+@app.post("/api/upload-evidence")
+async def upload_evidence(file: UploadFile = File(...)):
+    safe_name = os.path.basename(file.filename or "evidence_file")
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stored_name = f"{stamp}_{safe_name}"
+    file_path = os.path.join(UPLOAD_DIR, stored_name)
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        return {
+            "success": True,
+            "filename": safe_name,
+            "stored_name": stored_name,
+            "url": f"/uploads/{stored_name}"
+        }
+    except Exception as e:
+        print("Upload Error:", e)
+        raise HTTPException(status_code=500, detail="ফাইল সংরক্ষণ করতে সমস্যা হয়েছে।")
+
+
+class ChatReq(BaseModel):
+    question: str
+
+
+@app.post("/api/chat")
+def citizen_chat(req: ChatReq):
+    q = req.question.strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="প্রশ্ন খালি রাখা যাবে না।")
+
+    verified_link = "https://bangladesh.gov.bd"
+    verified_title = "বাংলাদেশ জাতীয় তথ্য বাতায়ন"
+    ql = q.lower()
+    if "জন্ম" in q or "birth" in ql:
+        verified_link = "https://bdris.gov.bd"
+        verified_title = "জন্ম ও মৃত্যু নিবন্ধন পোর্টাল (BDRIS)"
+    elif "রাস্তা" in q or "road" in ql or "অভিযোগ" in q:
+        verified_link = "https://grs.gov.bd"
+        verified_title = "কেন্দ্রীয় অভিযোগ প্রতিকার ব্যবস্থা (GRS)"
+    elif "কাগজ" in q or "document" in ql or "সেবা" in q:
+        verified_link = "https://services.portal.gov.bd"
+        verified_title = "সরকারি সেবা পোর্টাল"
+
+    ai_reply = call_ai_text(
+        f"নাগরিকের প্রশ্ন: {q}\nবাংলাদেশের প্রেক্ষাপটে সহজ বাংলায় সংক্ষিপ্ত ও স্পষ্ট সহায়ক উত্তর দিন। কোনো কাল্পনিক আইন বা সরকারি নীতি বানাবেন না; সন্দেহ হলে অফিশিয়াল পোর্টাল যাচাই করতে বলুন।",
+        system_instruction="আপনি নাগরিকবন্ধু (NagorikBondhu) প্ল্যাটফর্মের বাংলা এআই নাগরিক সহায়ক।"
+    )
+
+    if ai_reply:
+        return {
+            "source_type": "AI সহায়ক (OpenAI)",
+            "answer": ai_reply,
+            "verified_title": verified_title,
+            "verified_url": verified_link
+        }
+
+    if "জন্ম" in q or "birth" in ql:
+        demo_answer = "জন্ম নিবন্ধন সংশোধনের জন্য অনলাইনে BDRIS পোর্টালে আবেদন করতে হয়। আবেদন কপির সাথে বয়স প্রমাণের সনদ (SSC সনদ বা টিকা কার্ড) ও অভিভাবকের NID কপি সংযুক্ত করে নিজ ইউনিয়ন পরিষদ বা সিটি কর্পোরেশন অফিসে জমা দিতে হয়।"
+    elif "রাস্তা" in q or "road" in ql:
+        demo_answer = "ভাঙা রাস্তা বা ড্রেনেজ সমস্যার জন্য স্থানীয় সিটি কর্পোরেশন, পৌরসভা বা এলজিইডি (LGED) বরাবর লিখিত অভিযোগ করতে হয়। আপনি আমাদের 'এআই অভিযোগ জেনারেটর' ট্যাব থেকে এখনই একটি আনুষ্ঠানিক অভিযোগপত্র তৈরি করতে পারেন।"
+    elif "কাগজ" in q or "document" in ql:
+        demo_answer = "যেকোনো সরকারি সেবার জন্য সাধারণত: (১) জাতীয় পরিচয়পত্র (NID) বা জন্ম নিবন্ধন সনদ, (২) সদ্য তোলা পাসপোর্ট সাইজের ছবি, এবং (৩) নাগরিকত্ব বা ঠিকানার প্রমাণপত্র প্রয়োজন হয়।"
+    else:
+        demo_answer = "আপনার প্রশ্নটি নাগরিকবন্ধু ডেমো সহায়ক সিস্টেমে প্রক্রিয়াকরণ করা হয়েছে। সুনির্দিষ্ট সরকারি নীতির জন্য নিচের যাচাইকৃত পোর্টাল দেখুন।"
+
+    return {
+        "source_type": "ডেমো সহায়ক উত্তর (Demo Guidance)",
+        "answer": demo_answer,
+        "verified_title": verified_title,
+        "verified_url": verified_link
+    }
+
+
+class DocAskReq(BaseModel):
+    question: str
+    document_text: str
+
+
+@app.post("/api/doc/ask")
+def ask_doc_api(req: DocAskReq):
+    doc_txt = (req.document_text or "").strip()
+    q = (req.question or "").strip()
+    if not doc_txt:
+        return {"found": False, "answer": "আগে একটি PDF ফাইল আপলোড করুন। অনুমান করে কোনো উত্তর দেওয়া হয় না।"}
+    if not q:
+        return {"found": False, "answer": "অনুগ্রহ করে আপনার প্রশ্ন বা শব্দ লিখুন।"}
+
+    ai_ans = call_ai_text(
+        f"নিচের PDF ডকুমেন্টের তথ্য অনুযায়ী প্রশ্নের উত্তর দিন। ডকুমেন্টে উত্তর না থাকলে স্পষ্টভাবে বলুন যে ডকুমেন্টে তথ্যটি নেই; নিজের থেকে বানিয়ে কিছু লিখবেন না।\n\nডকুমেন্ট:\n{doc_txt[:12000]}\n\nপ্রশ্ন: {q}",
+        system_instruction="আপনি শুধুমাত্র প্রদত্ত PDF ডকুমেন্টের তথ্যের ভিত্তিতে উত্তর প্রদান করবেন।"
+    )
+    if ai_ans:
+        return {"found": True, "source_type": "AI ডকুমেন্ট বিশ্লেষণ (OpenAI)", "answer": ai_ans}
+
+    keywords = [w for w in q.split() if len(w) > 2]
+    sentences = doc_txt.split("।")
+    matches = [s.strip() for s in sentences if any(k.lower() in s.lower() for k in keywords)]
+    if matches:
+        return {
+            "found": True,
+            "source_type": "ডকুমেন্ট রেফারেন্স ফলাফল",
+            "answer": f"<strong>আপলোডকৃত ডকুমেন্ট থেকে প্রাপ্ত প্রাসঙ্গিক অংশ:</strong><br><br>\"{'। '.join(matches[:3])}।\""
+        }
+    return {
+        "found": False,
+        "source_type": "ডকুমেন্ট রেফারেন্স ফলাফল",
+        "answer": "আপলোডকৃত PDF ডকুমেন্টে আপনার প্রশ্নের সাথে সরাসরি মিলে এমন কোনো তথ্য খুঁজে পাওয়া যায়নি।"
+    }
+
+
 class LoginReq(BaseModel):
     email: str
     password: str
+
 
 @app.post("/api/auth/login")
 def login(req: LoginReq):
@@ -205,12 +385,14 @@ def login(req: LoginReq):
         }
     raise HTTPException(status_code=401, detail="ভুল ইমেইল অথবা পাসওয়ার্ড দেওয়া হয়েছে।")
 
+
 class RegReq(BaseModel):
     full_name: str
     email: str
     password: str
     nid_number: str
     dob: str
+
 
 @app.post("/api/auth/register")
 def register(req: RegReq):
@@ -225,17 +407,18 @@ def register(req: RegReq):
             VALUES (%s, %s, %s, %s, %s, 'Citizen', 1, %s)
             RETURNING id
         """, (req.full_name.strip(), req.email.strip().lower(), hash_pw(req.password), nid, req.dob.strip(), datetime.now().strftime("%Y-%m-%d")))
-        
+
         uid = cur.fetchone()['id']
         conn.commit()
         cur.close()
         conn.close()
-        
+
         log_audit("Citizen", f"নতুন নাগরিক নিবন্ধন (****{nid[-4:]})", f"USR-{uid}")
         return {"success": True, "message": "এনআইডি যাচাই সফল! অ্যাকাউন্ট তৈরি হয়েছে, এখন লগইন করুন।"}
     except Exception as e:
         print("Register Error:", e)
         raise HTTPException(status_code=400, detail="এই ইমেইল বা এনআইডি দিয়ে আগেই অ্যাকাউন্ট খোলা হয়েছে।")
+
 
 class UpdateProfileReq(BaseModel):
     email: str
@@ -243,34 +426,41 @@ class UpdateProfileReq(BaseModel):
     current_password: str
     new_password: str = ""
 
+
 @app.post("/api/auth/update-profile")
 def update_profile(req: UpdateProfileReq):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE email = %s AND password_hash = %s", 
-                (req.email.strip().lower(), hash_pw(req.current_password)))
+    cur.execute(
+        "SELECT * FROM users WHERE email = %s AND password_hash = %s",
+        (req.email.strip().lower(), hash_pw(req.current_password))
+    )
     user = cur.fetchone()
-    
+
     if not user:
         cur.close()
         conn.close()
         raise HTTPException(status_code=400, detail="বর্তমান পাসওয়ার্ডটি সঠিক নয়।")
-    
+
     try:
         if req.new_password.strip():
             new_hash = hash_pw(req.new_password.strip())
-            cur.execute("UPDATE users SET full_name = %s, password_hash = %s WHERE email = %s",
-                        (req.full_name.strip(), new_hash, req.email.strip().lower()))
+            cur.execute(
+                "UPDATE users SET full_name = %s, password_hash = %s WHERE email = %s",
+                (req.full_name.strip(), new_hash, req.email.strip().lower())
+            )
         else:
-            cur.execute("UPDATE users SET full_name = %s WHERE email = %s",
-                        (req.full_name.strip(), req.email.strip().lower()))
-        
+            cur.execute(
+                "UPDATE users SET full_name = %s WHERE email = %s",
+                (req.full_name.strip(), req.email.strip().lower())
+            )
+
         conn.commit()
         cur.execute("SELECT * FROM users WHERE email = %s", (req.email.strip().lower(),))
         updated_user = cur.fetchone()
         cur.close()
         conn.close()
-        
+
         log_audit(updated_user["role"], f"প্রোফাইল আপডেট ({updated_user['email']})", f"USR-{updated_user['id']}")
         return {
             "success": True,
@@ -286,12 +476,14 @@ def update_profile(req: UpdateProfileReq):
         print("Profile Update Error:", e)
         raise HTTPException(status_code=400, detail="প্রোফাইল আপডেট করতে সমস্যা হয়েছে।")
 
+
 class AnalyzeReq(BaseModel):
     prompt: str
     district: str = "ঢাকা"
     area: str = ""
     category: str = ""
     lang: str = "bn"
+
 
 @app.post("/api/assistant/analyze")
 def analyze_issue(req: AnalyzeReq):
@@ -310,7 +502,13 @@ def analyze_issue(req: AnalyzeReq):
         domain, dept, law = "ক্ষতিগ্রস্ত রাস্তা ও অবকাঠামো", "সিটি কর্পোরেশন / এলজিইডি (LGED)", "স্থানীয় সরকার প্রকৌশল বিধিমালা"
 
     loc_text = f"জেলা: {req.district}, এলাকা: {req.area}" if req.area else f"জেলা: {req.district}"
-    draft = (
+
+    ai_draft = call_ai_text(
+        f"জেলা: {req.district}\nএলাকা: {req.area or 'নির্ধারিত নয়'}\nক্যাটাগরি: {req.category or domain}\nকর্তৃপক্ষ: {dept}\nপ্রযোজ্য আইন: {law}\nসমস্যার বিবরণ: {req.prompt}\n\nউপরের তথ্যের ভিত্তিতে একটি পরিশীলিত ও আনুষ্ঠানিক বাংলা নাগরিক অভিযোগপত্র তৈরি করুন।",
+        system_instruction="আপনি বাংলাদেশের নাগরিক অভিযোগপত্র খসড়া তৈরির সহায়ক। নির্ভুল ও প্রাঞ্জল বাংলায় আনুষ্ঠানিক আবেদনপত্র লিখুন।"
+    )
+
+    draft = ai_draft if ai_draft else (
         f"বরাবর,\n"
         f"দায়িত্বপ্রাপ্ত কর্মকর্তা,\n"
         f"{dept}\n"
@@ -326,6 +524,7 @@ def analyze_issue(req: AnalyzeReq):
     )
     return {"domain": domain, "department": dept, "law": law, "draft": draft}
 
+
 class ComplaintReq(BaseModel):
     citizen_nid: str
     domain: str
@@ -336,12 +535,13 @@ class ComplaintReq(BaseModel):
     draft_text: str
     evidence_note: str = "কোনো ফাইল সংযুক্ত নেই"
 
+
 @app.post("/api/complaints")
 def create_complaint(req: ComplaintReq):
     tracking_id = f"NB-2026-{random.randint(1200, 9999)}"
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     init_history = json.dumps([{"stage": "Draft", "time": now_str, "note": "অভিযোগের খসড়া তৈরি ও সংরক্ষণ করা হয়েছে"}], ensure_ascii=False)
-    
+
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
@@ -354,6 +554,7 @@ def create_complaint(req: ComplaintReq):
     log_audit("Citizen", f"অভিযোগ সংরক্ষণ ({req.domain})", tracking_id)
     return {"tracking_id": tracking_id}
 
+
 @app.get("/api/complaints")
 def get_complaints():
     conn = get_db()
@@ -364,9 +565,11 @@ def get_complaints():
     conn.close()
     return rows
 
+
 class StatusUpdateReq(BaseModel):
     status: str
     external_ref: str = None
+
 
 @app.patch("/api/complaints/{tracking_id}/status")
 def update_complaint_status(tracking_id: str, req: StatusUpdateReq):
@@ -388,28 +591,34 @@ def update_complaint_status(tracking_id: str, req: StatusUpdateReq):
     history.append({"stage": req.status, "time": now_str, "note": f"অবস্থা '{req.status}'-এ পরিবর্তন করা হয়েছে"})
     new_ref = req.external_ref if req.external_ref else row["external_ref"]
 
-    cur.execute("UPDATE complaints SET status = %s, external_ref = %s, status_history = %s WHERE tracking_id = %s",
-                (req.status, new_ref, json.dumps(history, ensure_ascii=False), tracking_id))
+    cur.execute(
+        "UPDATE complaints SET status = %s, external_ref = %s, status_history = %s WHERE tracking_id = %s",
+        (req.status, new_ref, json.dumps(history, ensure_ascii=False), tracking_id)
+    )
     conn.commit()
     cur.close()
     conn.close()
     log_audit("User/Admin", f"অভিযোগের স্ট্যাটাস আপডেট -> {req.status}", tracking_id)
     return {"success": True}
 
+
 @app.get("/api/boq/rates")
 def get_boq_rates():
     return SCHEDULE_RATES
+
 
 class BoqItem(BaseModel):
     item_code: str
     quantity: float
     quoted_unit_rate: float
 
+
 class BoqAuditReq(BaseModel):
     project_name: str
     agency: str = "LGED"
     allocated_budget: float
     items: list[BoqItem]
+
 
 @app.post("/api/boq/audit")
 def audit_boq(req: BoqAuditReq):
@@ -450,6 +659,7 @@ def audit_boq(req: BoqAuditReq):
         "overall_alert": anomalies > 0, "anomaly_count": anomalies, "items": line_results
     }
 
+
 class HazardReq(BaseModel):
     title: str
     category: str
@@ -457,13 +667,14 @@ class HazardReq(BaseModel):
     lng: float
     force_create: bool = False
 
+
 @app.post("/api/hazards")
 def post_hazard(req: HazardReq):
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT * FROM hazards")
     existing = cur.fetchall()
-    
+
     if not req.force_create:
         for h in existing:
             dist = haversine_meters(req.lat, req.lng, h["lat"], h["lng"])
@@ -476,13 +687,16 @@ def post_hazard(req: HazardReq):
                     "existing_hazard": dict(h)
                 }
 
-    cur.execute("INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at) VALUES (%s, %s, %s, %s, %s, 'Open', %s)",
-                (req.title, req.category, req.lat, req.lng, 1, datetime.now().strftime("%Y-%m-%d")))
+    cur.execute(
+        "INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at) VALUES (%s, %s, %s, %s, %s, 'Open', %s)",
+        (req.title, req.category, req.lat, req.lng, 1, datetime.now().strftime("%Y-%m-%d"))
+    )
     conn.commit()
     cur.close()
     conn.close()
     log_audit("Citizen", f"ম্যাপে সমস্যা পিন: {req.title}", "HAZ-NEW")
     return {"duplicate_detected": False}
+
 
 @app.post("/api/hazards/{hazard_id}/upvote")
 def upvote_hazard(hazard_id: int):
@@ -494,6 +708,7 @@ def upvote_hazard(hazard_id: int):
     conn.close()
     return {"success": True}
 
+
 @app.get("/api/hazards")
 def get_hazards():
     conn = get_db()
@@ -504,6 +719,7 @@ def get_hazards():
     conn.close()
     return rows
 
+
 @app.get("/api/services")
 def get_services():
     conn = get_db()
@@ -513,6 +729,7 @@ def get_services():
     cur.close()
     conn.close()
     return rows
+
 
 @app.get("/api/admin/analytics")
 def admin_analytics():
