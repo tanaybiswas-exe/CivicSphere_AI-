@@ -416,6 +416,7 @@ def login(req: LoginReq):
     try:
         conn = get_db()
         cur = conn.cursor()
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT")
         cur.execute(
             "SELECT * FROM users WHERE (LOWER(email) = %s OR phone = %s) AND password_hash = %s",
             (ident_email, ident_phone, hash_pw(req.password))
@@ -433,11 +434,14 @@ def login(req: LoginReq):
             "success": True,
             "user": {
                 "id": user["id"],
-                "full_name": user["full_name"],
-                "email": user["email"],
+                "full_name": user["full_name"] or "",
+                "email": user["email"] or "",
                 "phone": user.get("phone") or "",
-                "role": user["role"],
-                "nid_masked": f"****-****-{user['nid_number'][-4:]}" if user['nid_number'] else "****"
+                "nid_number": user["nid_number"] or "",
+                "dob": user["dob"] or "",
+                "role": user["role"] or "Citizen",
+                "created_at": user["created_at"] or "",
+                "nid_masked": f"****-****-{user['nid_number'][-4:]}" if user["nid_number"] and len(user["nid_number"]) >= 4 else (user["nid_number"] or "****")
             }
         }
     raise HTTPException(status_code=401, detail="ভুল ইমেইল / মোবাইল নম্বর অথবা পাসওয়ার্ড দেওয়া হয়েছে।")
@@ -501,43 +505,118 @@ def register(req: RegReq):
         raise HTTPException(status_code=500, detail=f"ডাটাবেজ ত্রুটি: {str(e)}")
 
 
+class UserProfileOut(BaseModel):
+    email: str
+
+
+@app.post("/api/auth/profile")
+def get_user_profile(req: UserProfileOut):
+    email = (req.email or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="ইমেইল প্রয়োজন।")
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT")
+        cur.execute(
+            "SELECT id, full_name, email, phone, nid_number, dob, role, is_verified, created_at FROM users WHERE LOWER(email) = %s",
+            (email,)
+        )
+        user = cur.fetchone()
+        cur.close()
+        conn.close()
+        if not user:
+            raise HTTPException(status_code=404, detail="ব্যবহারকারীর প্রোফাইল পাওয়া যায়নি।")
+        return {
+            "success": True,
+            "profile": {
+                "id": user["id"],
+                "full_name": user["full_name"] or "",
+                "email": user["email"] or "",
+                "phone": user.get("phone") or "",
+                "nid_number": user["nid_number"] or "",
+                "nid_masked": f"****-****-{user['nid_number'][-4:]}" if user["nid_number"] and len(user["nid_number"]) >= 4 else (user["nid_number"] or "****"),
+                "dob": user["dob"] or "",
+                "role": user["role"] or "Citizen",
+                "is_verified": user["is_verified"],
+                "created_at": user["created_at"] or ""
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("Get Profile Error:", e)
+        raise HTTPException(status_code=500, detail=f"প্রোফাইল লোড করতে সমস্যা হয়েছে: {str(e)}")
+
+
 class UpdateProfileReq(BaseModel):
     email: str
     full_name: str
-    current_password: str
+    phone: str = ""
+    nid_number: str = ""
+    dob: str = ""
+    current_password: str = ""
     new_password: str = ""
 
 
 @app.post("/api/auth/update-profile")
 def update_profile(req: UpdateProfileReq):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT * FROM users WHERE email = %s AND password_hash = %s",
-        (req.email.strip().lower(), hash_pw(req.current_password))
-    )
-    user = cur.fetchone()
+    target_email = (req.email or "").strip().lower()
+    full_name = (req.full_name or "").strip()
+    phone = re.sub(r"\D", "", req.phone or "")
+    if phone.startswith("880") and len(phone) == 13:
+        phone = "0" + phone[3:]
+    nid = re.sub(r"\D", "", req.nid_number or "")
+    dob = (req.dob or "").strip()
 
-    if not user:
-        cur.close()
-        conn.close()
-        raise HTTPException(status_code=400, detail="বর্তমান পাসওয়ার্ডটি সঠিক নয়।")
+    if not target_email:
+        raise HTTPException(status_code=400, detail="ইমেইল ঠিকানা আবশ্যক।")
+    if not full_name:
+        raise HTTPException(status_code=400, detail="পূর্ণ নাম খালি রাখা যাবে না।")
+    if phone and not re.match(r"^01[3-9]\d{8}$", phone):
+        raise HTTPException(status_code=400, detail="সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন (যেমন: 017XXXXXXXX)।")
+    if nid and len(nid) < 10:
+        raise HTTPException(status_code=400, detail="NID নম্বর কমপক্ষে ১০ ডিজিটের হতে হবে।")
 
     try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT")
+        cur.execute("SELECT * FROM users WHERE LOWER(email) = %s", (target_email,))
+        user = cur.fetchone()
+
+        if not user:
+            cur.close()
+            conn.close()
+            raise HTTPException(status_code=404, detail="ব্যবহারকারীর অ্যাকাউন্ট খুঁজে পাওয়া যায়নি।")
+
         if req.new_password.strip():
+            if not req.current_password:
+                cur.close()
+                conn.close()
+                raise HTTPException(status_code=400, detail="নতুন পাসওয়ার্ড সেট করতে বর্তমান পাসওয়ার্ড দিন।")
+            if user["password_hash"] != hash_pw(req.current_password):
+                cur.close()
+                conn.close()
+                raise HTTPException(status_code=400, detail="বর্তমান পাসওয়ার্ডটি সঠিক নয়।")
             new_hash = hash_pw(req.new_password.strip())
-            cur.execute(
-                "UPDATE users SET full_name = %s, password_hash = %s WHERE email = %s",
-                (req.full_name.strip(), new_hash, req.email.strip().lower())
-            )
+            cur.execute("""
+                UPDATE users
+                SET full_name = %s, phone = %s, nid_number = %s, dob = %s, password_hash = %s
+                WHERE LOWER(email) = %s
+            """, (full_name, phone, nid or user["nid_number"], dob or user["dob"], new_hash, target_email))
         else:
-            cur.execute(
-                "UPDATE users SET full_name = %s WHERE email = %s",
-                (req.full_name.strip(), req.email.strip().lower())
-            )
+            cur.execute("""
+                UPDATE users
+                SET full_name = %s, phone = %s, nid_number = %s, dob = %s
+                WHERE LOWER(email) = %s
+            """, (full_name, phone, nid or user["nid_number"], dob or user["dob"], target_email))
 
         conn.commit()
-        cur.execute("SELECT * FROM users WHERE email = %s", (req.email.strip().lower(),))
+        cur.execute(
+            "SELECT id, full_name, email, phone, nid_number, dob, role, is_verified, created_at FROM users WHERE LOWER(email) = %s",
+            (target_email,)
+        )
         updated_user = cur.fetchone()
         cur.close()
         conn.close()
@@ -547,15 +626,21 @@ def update_profile(req: UpdateProfileReq):
             "success": True,
             "user": {
                 "id": updated_user["id"],
-                "full_name": updated_user["full_name"],
-                "email": updated_user["email"],
-                "role": updated_user["role"],
-                "nid_masked": f"****-****-{updated_user['nid_number'][-4:]}" if updated_user['nid_number'] else "****"
+                "full_name": updated_user["full_name"] or "",
+                "email": updated_user["email"] or "",
+                "phone": updated_user.get("phone") or "",
+                "nid_number": updated_user["nid_number"] or "",
+                "nid_masked": f"****-****-{updated_user['nid_number'][-4:]}" if updated_user["nid_number"] and len(updated_user["nid_number"]) >= 4 else (updated_user["nid_number"] or "****"),
+                "dob": updated_user["dob"] or "",
+                "role": updated_user["role"] or "Citizen",
+                "created_at": updated_user["created_at"] or ""
             }
         }
+    except HTTPException:
+        raise
     except Exception as e:
         print("Profile Update Error:", e)
-        raise HTTPException(status_code=400, detail="প্রোফাইল আপডেট করতে সমস্যা হয়েছে।")
+        raise HTTPException(status_code=400, detail=f"প্রোফাইল আপডেট করতে সমস্যা হয়েছে: {str(e)}")
 
 
 class AnalyzeReq(BaseModel):
@@ -816,11 +901,12 @@ def get_services():
 def admin_analytics():
     conn = get_db()
     cur = conn.cursor()
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT")
     cur.execute("SELECT domain, status, district FROM complaints")
     complaints = cur.fetchall()
     cur.execute("SELECT category, upvotes, status FROM hazards")
     hazards = cur.fetchall()
-    cur.execute("SELECT id, full_name, email, nid_number, dob, role, is_verified, created_at FROM users ORDER BY id DESC")
+    cur.execute("SELECT id, full_name, email, phone, nid_number, dob, role, is_verified, created_at FROM users ORDER BY id DESC")
     users = cur.fetchall()
     cur.execute("SELECT * FROM audit_logs ORDER BY id DESC LIMIT 25")
     logs = cur.fetchall()
@@ -839,12 +925,16 @@ def admin_analytics():
         dist = c["district"] or "ঢাকা"
         area_counts[dist] = area_counts.get(dist, 0) + 1
 
-    masked_users = []
+    user_rows = []
     for u in users:
         ud = dict(u)
-        nid = ud["nid_number"] or ""
-        ud["nid_masked"] = f"****-****-{nid[-4:]}" if len(nid) >= 4 else nid
-        masked_users.append(ud)
+        nid = ud.get("nid_number") or ""
+        ud["phone"] = ud.get("phone") or ""
+        ud["nid_number"] = nid
+        ud["dob"] = ud.get("dob") or ""
+        ud["created_at"] = ud.get("created_at") or ""
+        ud["nid_masked"] = f"****-****-{nid[-4:]}" if len(nid) >= 4 else (nid or "****")
+        user_rows.append(ud)
 
     return {
         "total_complaints": len(complaints),
@@ -853,7 +943,7 @@ def admin_analytics():
         "resolved_complaints": status_counts.get("Resolved", 0),
         "total_hazards": len(hazards),
         "total_users": len(users),
-        "users": masked_users,
+        "users": user_rows,
         "status_counts": status_counts,
         "domain_counts": domain_counts,
         "area_counts": area_counts,
