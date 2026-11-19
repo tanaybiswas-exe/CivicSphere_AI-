@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- PDF.js for client-side real PDF text extraction without fabricating data -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -180,13 +181,7 @@
       </div>
 
       <div>
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-          <h4 class="text-xs font-bold uppercase text-slate-600">খসড়া অভিযোগপত্র:</h4>
-          <div class="flex gap-2">
-            <button onclick="downloadModalComplaint()" class="text-xs bg-emerald-800 hover:bg-emerald-900 text-white font-bold px-3 py-1.5 rounded-lg">⬇ ডাউনলোড করুন</button>
-            <button onclick="printTextContent(document.getElementById('detDraftText').textContent, 'অভিযোগপত্র')" class="text-xs bg-slate-800 hover:bg-slate-900 text-white font-bold px-3 py-1.5 rounded-lg">🖨 প্রিন্ট করুন</button>
-          </div>
-        </div>
+        <h4 class="text-xs font-bold uppercase text-slate-600 mb-1.5">খসড়া অভিযোগপত্র:</h4>
         <pre id="detDraftText" class="bg-slate-50 border p-3.5 sm:p-4 rounded-2xl text-xs whitespace-pre-wrap font-sans leading-relaxed max-h-48 overflow-y-auto"></pre>
       </div>
 
@@ -506,7 +501,7 @@
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-700 mb-1">প্রমাণ হিসেবে ছবি আপলোড করুন (ঐচ্ছিক)</label>
-              <input id="compPhotoInput" type="file" accept="image/*,.pdf" onchange="handlePhotoSelect(this)" class="w-full rounded-xl border border-slate-300 p-2 text-xs bg-slate-50" />
+              <input id="compPhotoInput" type="file" accept="image/*" onchange="handlePhotoSelect(this)" class="w-full rounded-xl border border-slate-300 p-2 text-xs bg-slate-50" />
             </div>
           </div>
 
@@ -522,16 +517,10 @@
 
         <!-- GENERATED DRAFT EDIT & SAVE -->
         <div id="aiResultCard" class="hidden bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-600/30 space-y-5">
-          <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
-            <div>
-              <span class="inline-block text-xs font-bold bg-amber-100 text-amber-900 px-3 py-1 rounded-full">ধাপ ২: খসড়া যাচাই, সম্পাদনা ও সংরক্ষণ</span>
-              <h3 class="font-extrabold text-lg sm:text-xl text-slate-900 mt-2">প্রস্তুতকৃত আনুষ্ঠানিক অভিযোগপত্র (সম্পাদনাযোগ্য)</h3>
-              <p class="text-xs text-slate-500">আপনি চাইলে নিচের বক্সে লেখা পরিবর্তন বা সংশোধন করে তারপর সংরক্ষণ, ডাউনলোড বা প্রিন্ট করতে পারেন।</p>
-            </div>
-            <div class="flex gap-2">
-              <button onclick="downloadDraftComplaint()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-900 border font-bold px-3.5 py-2 rounded-xl">⬇ ডাউনলোড</button>
-              <button onclick="printTextContent(document.getElementById('resDraft').value, 'খসড়া অভিযোগপত্র')" class="text-xs bg-slate-900 hover:bg-slate-800 text-white font-bold px-3.5 py-2 rounded-xl">🖨 প্রিন্ট</button>
-            </div>
+          <div class="border-b pb-3">
+            <span class="inline-block text-xs font-bold bg-amber-100 text-amber-900 px-3 py-1 rounded-full">ধাপ ২: খসড়া যাচাই, সম্পাদনা ও সংরক্ষণ</span>
+            <h3 class="font-extrabold text-lg sm:text-xl text-slate-900 mt-2">প্রস্তুতকৃত আনুষ্ঠানিক অভিযোগপত্র (সম্পাদনাযোগ্য)</h3>
+            <p class="text-xs text-slate-500">আপনি চাইলে নিচের বক্সে লেখা পরিবর্তন বা সংশোধন করে তারপর সংরক্ষণ করতে পারেন।</p>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
@@ -681,7 +670,7 @@
           </div>
 
           <div id="pdfAnswerBox" class="hidden bg-emerald-50 border border-emerald-200 p-4 sm:p-5 rounded-2xl space-y-2">
-            <span id="pdfAnswerBadge" class="inline-block text-xs font-bold bg-emerald-800 text-white px-2.5 py-0.5 rounded">ডকুমেন্ট রেফারেন্স ফলাফল</span>
+            <span class="text-xs font-bold bg-emerald-800 text-white px-2.5 py-0.5 rounded">ডকুমেন্ট রেফারেন্স ফলাফল</span>
             <p id="pdfAnswerText" class="text-xs sm:text-sm text-slate-800 leading-relaxed"></p>
           </div>
         </div>
@@ -852,47 +841,6 @@
       toast.textContent = message;
       container.appendChild(toast);
       setTimeout(() => toast.remove(), 3500);
-    }
-
-    function downloadTextFile(filename, content) {
-      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    function downloadDraftComplaint() {
-      const txt = document.getElementById("resDraft").value || "";
-      if (!txt.trim()) return showToast("ডাউনলোড করার মতো কোনো খসড়া নেই।", "warn");
-      downloadTextFile("NagorikBondhu_Complaint_Draft.txt", txt);
-      showToast("অভিযোগপত্র ডাউনলোড হয়েছে!");
-    }
-
-    function downloadModalComplaint() {
-      const id = document.getElementById("detTrackingId").textContent || "Complaint";
-      const txt = document.getElementById("detDraftText").textContent || "";
-      downloadTextFile(`${id}_NagorikBondhu.txt`, txt);
-      showToast("অভিযোগ রিপোর্ট ডাউনলোড হয়েছে!");
-    }
-
-    function printTextContent(content, title = "রিপোর্ট") {
-      if (!content || !content.trim()) return showToast("প্রিন্ট করার মতো কোনো তথ্য নেই।", "warn");
-      const win = window.open("", "_blank", "width=800,height=600");
-      if (!win) return showToast("পপ-আপ ব্লক করা আছে, অনুগ্রহ করে অনুমতি দিন।", "warn");
-      const escaped = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      win.document.write(`
-        <html lang="bn"><head><title>${title}</title>
-        <style>body{font-family:'Hind Siliguri',sans-serif;padding:28px;line-height:1.7;color:#0f172a;}pre{white-space:pre-wrap;font-family:inherit;}</style>
-        </head><body><h2>${title}</h2><pre>${escaped}</pre></body></html>
-      `);
-      win.document.close();
-      win.focus();
-      win.print();
     }
 
     function toggleMobileDashboardDrawer() {
@@ -1129,13 +1077,13 @@
       if (tabId === 'boq') loadBoqPreset('road');
     }
 
-    // BANGLA AI ASSISTANT CHAT (AI API + DEMO FALLBACK)
+    // BANGLA AI ASSISTANT CHAT
     function askSuggestedChat(q) {
       document.getElementById('chatInput').value = q;
       sendChatMessage();
     }
 
-    async function sendChatMessage() {
+    function sendChatMessage() {
       const input = document.getElementById('chatInput');
       const q = input.value.trim();
       if (!q) return;
@@ -1150,51 +1098,46 @@
       `;
       input.value = "";
 
-      try {
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: q })
-        });
-        const data = await res.json();
+      let demoAnswer = "আপনার প্রশ্নটি নাগরিকবন্ধু ডেমো সহায়ক সিস্টেমে প্রক্রিয়াকরণ করা হয়েছে। সুনির্দিষ্ট সরকারি নীতির জন্য নিচের যাচাইকৃত পোর্টাল দেখুন।";
+      let verifiedLink = "https://bangladesh.gov.bd";
+      let verifiedTitle = "বাংলাদেশ জাতীয় তথ্য বাতায়ন";
+
+      if (q.includes("জন্ম") || q.toLowerCase().includes("birth")) {
+        demoAnswer = "জন্ম নিবন্ধন সংশোধনের জন্য অনলাইনে BDRIS পোর্টালে আবেদন করতে হয়। আবেদন কপির সাথে বয়স প্রমাণের সনদ (SSC সনদ বা টিকা কার্ড) ও অভিভাবকের NID কপি সংযুক্ত করে নিজ ইউনিয়ন পরিষদ বা সিটি কর্পোরেশন অফিসে জমা দিতে হয়।";
+        verifiedLink = "https://bdris.gov.bd";
+        verifiedTitle = "জন্ম ও মৃত্যু নিবন্ধন পোর্টাল (BDRIS)";
+      } else if (q.includes("রাস্তা") || q.toLowerCase().includes("road")) {
+        demoAnswer = "ভাঙা রাস্তা বা ড্রেনেজ সমস্যার জন্য স্থানীয় সিটি কর্পোরেশন, পৌরসভা বা এলজিইডি (LGED) বরাবর লিখিত অভিযোগ করতে হয়। আপনি আমাদের 'এআই অভিযোগ জেনারেটর' ট্যাব থেকে এখনই একটি আনুষ্ঠানিক অভিযোগপত্র তৈরি করতে পারেন।";
+        verifiedLink = "https://grs.gov.bd";
+        verifiedTitle = "কেন্দ্রীয় অভিযোগ প্রতিকার ব্যবস্থা (GRS)";
+      } else if (q.includes("কাগজ") || q.toLowerCase().includes("document")) {
+        demoAnswer = "যেকোনো সরকারি সেবার জন্য সাধারণত: (১) জাতীয় পরিচয়পত্র (NID) বা জন্ম নিবন্ধন সনদ, (২) সদ্য তোলা পাসপোর্ট সাইজের ছবি, এবং (৩) নাগরিকত্ব বা ঠিকানার প্রমাণপত্র প্রয়োজন হয়।";
+        verifiedLink = "https://services.portal.gov.bd";
+        verifiedTitle = "সরকারি সেবা পোর্টাল";
+      }
+
+      setTimeout(() => {
         box.innerHTML += `
           <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-sm max-w-[92%] sm:max-w-2xl space-y-2.5">
             <div class="flex items-center gap-2">
-              <span class="text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded">${data.source_type || "সহায়ক উত্তর"}</span>
+              <span class="text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded">ডেমো সহায়ক উত্তর (Demo Guidance)</span>
             </div>
-            <p class="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line">${data.answer}</p>
+            <p class="text-xs sm:text-sm text-slate-800 leading-relaxed">${demoAnswer}</p>
             <div class="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
               <span class="text-emerald-800 font-bold">✓ যাচাইকৃত সরকারি সূত্র:</span>
-              <a href="${data.verified_url}" target="_blank" class="text-blue-700 font-bold hover:underline">${data.verified_title} ↗</a>
+              <a href="${verifiedLink}" target="_blank" class="text-blue-700 font-bold hover:underline">${verifiedTitle} ↗</a>
             </div>
           </div>
         `;
         box.scrollTop = box.scrollHeight;
-      } catch (e) {
-        showToast("উত্তর আনতে সমস্যা হয়েছে।", "error");
-      }
+      }, 300);
     }
 
-    // COMPLAINT GENERATOR + REAL FILE UPLOAD
-    async function handlePhotoSelect(input) {
-      if (!input.files || !input.files[0]) return;
-      const file = input.files[0];
-      const formData = new FormData();
-      formData.append("file", file);
-
-      try {
-        const res = await fetch('/api/upload-evidence', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          document.getElementById('evidenceNote').value = `${data.filename} (${data.url})`;
-          showToast(`ফাইল সংরক্ষিত হয়েছে: ${data.filename}`);
-        } else {
-          document.getElementById('evidenceNote').value = `ছবি সংযুক্ত: ${file.name}`;
-          showToast(`ছবি নির্বাচিত হয়েছে: ${file.name}`);
-        }
-      } catch (e) {
-        document.getElementById('evidenceNote').value = `ছবি সংযুক্ত: ${file.name}`;
-        showToast(`ছবি নির্বাচিত হয়েছে: ${file.name}`);
+    // COMPLAINT GENERATOR
+    function handlePhotoSelect(input) {
+      if (input.files && input.files[0]) {
+        document.getElementById('evidenceNote').value = `ছবি সংযুক্ত: ${input.files[0].name}`;
+        showToast(`ছবি নির্বাচিত হয়েছে: ${input.files[0].name}`);
       }
     }
 
@@ -1431,7 +1374,7 @@
       loadHazards();
     }
 
-    // DOCUMENT ASSISTANT (PDF EXTRACTION + LLM / KEYWORD FALLBACK)
+    // DOCUMENT ASSISTANT (REAL PDF EXTRACTION)
     async function processUploadedPdf(input) {
       const file = input.files[0];
       if (!file) return;
@@ -1458,10 +1401,9 @@
       }
     }
 
-    async function askPdfDocument() {
+    function askPdfDocument() {
       const q = document.getElementById('pdfQuestionInput').value.trim();
       const box = document.getElementById('pdfAnswerBox');
-      const badge = document.getElementById('pdfAnswerBadge');
       const ansText = document.getElementById('pdfAnswerText');
 
       if (!extractedPdfText) {
@@ -1473,25 +1415,15 @@
         return;
       }
 
-      try {
-        const res = await fetch('/api/doc/ask', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: q, document_text: extractedPdfText })
-        });
-        const data = await res.json();
-        box.classList.remove('hidden');
-        if (data.source_type) badge.textContent = data.source_type;
-        ansText.innerHTML = (data.answer || "").replace(/\n/g, "<br>");
-      } catch (e) {
-        const keywords = q.split(/\s+/).filter(w => w.length > 2);
-        const sentences = extractedPdfText.split(/[.।\n]+/);
-        const matches = sentences.filter(s => keywords.some(k => s.toLowerCase().includes(k.toLowerCase())));
-        box.classList.remove('hidden');
-        badge.textContent = "ডকুমেন্ট রেফারেন্স ফলাফল";
-        ansText.innerHTML = matches.length > 0
-          ? `<strong>আপলোডকৃত ডকুমেন্ট থেকে প্রাপ্ত প্রাসঙ্গিক অংশ:</strong><br><br>"${matches.slice(0, 3).join('। ')}।"`
-          : "আপলোডকৃত PDF ডকুমেন্টে আপনার প্রশ্নের সাথে সরাসরি মিলে এমন কোনো তথ্য খুঁজে পাওয়া যায়নি।";
+      const keywords = q.split(/\s+/).filter(w => w.length > 2);
+      const sentences = extractedPdfText.split(/[.।\n]+/);
+      const matches = sentences.filter(s => keywords.some(k => s.toLowerCase().includes(k.toLowerCase())));
+
+      box.classList.remove('hidden');
+      if (matches.length > 0) {
+        ansText.innerHTML = `<strong>আপলোডকৃত ডকুমেন্ট থেকে প্রাপ্ত প্রাসঙ্গিক অংশ:</strong><br><br>"${matches.slice(0, 3).join('। ')}।"`;
+      } else {
+        ansText.textContent = "আপলোডকৃত PDF ডকুমেন্টে আপনার প্রশ্নের সাথে সরাসরি মিলে এমন কোনো তথ্য খুঁজে পাওয়া যায়নি।";
       }
     }
 
