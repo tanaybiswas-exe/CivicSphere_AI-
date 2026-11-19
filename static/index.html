@@ -293,7 +293,7 @@
     <!-- MAIN WORKSPACE -->
     <main class="flex-1 p-3.5 sm:p-6 md:p-8 max-w-7xl mx-auto w-full space-y-5 sm:space-y-6">
 
-      <!-- MOBILE TOP DASHBOARD MENU BAR (CLICK TO OPEN / ENTER ANY SECTION) -->
+      <!-- MOBILE TOP DASHBOARD MENU BAR -->
       <div class="lg:hidden bg-emerald-950 text-white rounded-2xl shadow-md border border-emerald-800 overflow-hidden">
         <button onclick="toggleMobileDashboardDrawer()" class="w-full px-4 py-3.5 flex items-center justify-between text-left font-bold text-sm">
           <div class="flex items-center gap-2.5">
@@ -1240,10 +1240,17 @@
       switchTab('complaints');
     }
 
-    // COMPLAINT TRACKER & DETAILS
+    // COMPLAINT TRACKER & DETAILS (SAFE AGAINST API ERRORS)
     async function loadComplaints() {
-      const res = await fetch('/api/complaints');
-      allComplaintsData = await res.json();
+      try {
+        const res = await fetch('/api/complaints');
+        if (!res.ok) throw new Error("Complaints API error");
+        const rows = await res.json();
+        allComplaintsData = Array.isArray(rows) ? rows : [];
+      } catch (e) {
+        allComplaintsData = [];
+      }
+
       const stages = ["Draft", "Submitted", "In Progress", "Resolved"];
 
       const homeBox = document.getElementById('homeRecentComplaints');
@@ -1337,11 +1344,15 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(miniMapInstance);
       }
       setTimeout(() => miniMapInstance.invalidateSize(), 200);
-      fetch('/api/hazards').then(r => r.json()).then(list => {
-        list.forEach(h => {
-          L.marker([h.lat, h.lng]).addTo(miniMapInstance).bindPopup(`<b>${h.title}</b>`);
-        });
-      });
+      fetch('/api/hazards')
+        .then(r => r.ok ? r.json() : [])
+        .then(list => {
+          if (!Array.isArray(list)) return;
+          list.forEach(h => {
+            L.marker([h.lat, h.lng]).addTo(miniMapInstance).bindPopup(`<b>${h.title}</b>`);
+          });
+        })
+        .catch(() => {});
     }
 
     function initMap() {
@@ -1358,8 +1369,14 @@
     }
 
     async function loadHazards() {
-      const res = await fetch('/api/hazards');
-      allHazardsData = await res.json();
+      try {
+        const res = await fetch('/api/hazards');
+        if (!res.ok) throw new Error("Hazards API error");
+        const rows = await res.json();
+        allHazardsData = Array.isArray(rows) ? rows : [];
+      } catch (e) {
+        allHazardsData = [];
+      }
       filterAndRenderHazards();
     }
 
@@ -1577,11 +1594,25 @@
       document.getElementById('resReward').textContent = `৳${(fine * 0.25).toLocaleString()}`;
     }
 
-    // DIRECTORY
+    // DIRECTORY (WITH SAFE FALLBACK SO CARDS NEVER STAY EMPTY)
     async function loadAutoSyncedDirectory() {
-      const res = await fetch('/api/services');
-      const services = await res.json();
-      document.getElementById('directoryGrid').innerHTML = services.map(s => `
+      const fallbackServices = [
+        { service_name: "কেন্দ্রীয় অভিযোগ প্রতিকার ব্যবস্থা (GRS)", ministry: "মন্ত্রিপরিষদ বিভাগ", fee: "বিনামূল্যে (Free)", sla_timeline: "১৫–৩০ কার্যদিবস", portal_url: "https://grs.gov.bd" },
+        { service_name: "দুর্নীতি দমন কমিশন (ACC / দুদক)", ministry: "স্বাধীন কমিশন", fee: "বিনামূল্যে (Free)", sla_timeline: "হেল্পলাইন ১০৬", portal_url: "https://acc.org.bd" },
+        { service_name: "জাতীয় ভোক্তা অধিকার সংরক্ষণ অধিদপ্তর (DNCRP)", ministry: "বাণিজ্য মন্ত্রণালয়", fee: "বিনামূল্যে (Free)", sla_timeline: "৩০ দিনের মধ্যে", portal_url: "https://dncrp.gov.bd" },
+        { service_name: "স্থানীয় সরকার প্রকৌশল অধিদপ্তর (LGED)", ministry: "স্থানীয় সরকার বিভাগ", fee: "বিনামূল্যে (Free)", sla_timeline: "১৫–২১ কার্যদিবস", portal_url: "https://lged.gov.bd" }
+      ];
+
+      let list = fallbackServices;
+      try {
+        const res = await fetch('/api/services');
+        if (res.ok) {
+          const services = await res.json();
+          if (Array.isArray(services) && services.length) list = services;
+        }
+      } catch (e) {}
+
+      document.getElementById('directoryGrid').innerHTML = list.map(s => `
         <div class="p-4 sm:p-6 border rounded-2xl sm:rounded-3xl bg-slate-50 flex flex-col justify-between space-y-4 shadow-sm hover:border-emerald-500 transition">
           <div>
             <div class="flex justify-between items-start gap-2">
@@ -1595,26 +1626,36 @@
       `).join('');
     }
 
-    // ADMIN ANALYTICS & CHARTS
+    // ADMIN ANALYTICS & CHARTS (SAFE AGAINST API ERRORS)
     async function loadAdminAnalytics() {
-      const res = await fetch('/api/admin/analytics');
-      const data = await res.json();
+      try {
+        const res = await fetch('/api/admin/analytics');
+        if (!res.ok) throw new Error("Analytics API error");
+        const data = await res.json();
 
-      document.getElementById('kpiTotalComplaints').textContent = data.total_complaints;
-      document.getElementById('kpiPending').textContent = data.pending_complaints;
-      document.getElementById('kpiInProgress').textContent = data.inprogress_complaints;
-      document.getElementById('kpiResolved').textContent = data.resolved_complaints;
+        document.getElementById('kpiTotalComplaints').textContent = data.total_complaints ?? 0;
+        document.getElementById('kpiPending').textContent = data.pending_complaints ?? 0;
+        document.getElementById('kpiInProgress').textContent = data.inprogress_complaints ?? 0;
+        document.getElementById('kpiResolved').textContent = data.resolved_complaints ?? 0;
 
-      document.getElementById('admComplaints').textContent = data.total_complaints;
-      document.getElementById('admResolved').textContent = data.resolved_complaints;
-      document.getElementById('admUsers').textContent = data.total_users;
-      document.getElementById('admHazards').textContent = data.total_hazards;
+        document.getElementById('admComplaints').textContent = data.total_complaints ?? 0;
+        document.getElementById('admResolved').textContent = data.resolved_complaints ?? 0;
+        document.getElementById('admUsers').textContent = data.total_users ?? 0;
+        document.getElementById('admHazards').textContent = data.total_hazards ?? 0;
 
-      document.getElementById('auditLogBody').innerHTML = data.audit_logs.map(l => `
-        <tr><td class="p-3.5 font-mono">#${l.id}</td><td class="p-3.5 font-bold">${l.actor_role}</td><td class="p-3.5">${l.action}</td><td class="p-3.5 text-slate-500">${l.timestamp}</td></tr>
-      `).join('');
+        const logs = Array.isArray(data.audit_logs) ? data.audit_logs : [];
+        document.getElementById('auditLogBody').innerHTML = logs.map(l => `
+          <tr><td class="p-3.5 font-mono">#${l.id}</td><td class="p-3.5 font-bold">${l.actor_role}</td><td class="p-3.5">${l.action}</td><td class="p-3.5 text-slate-500">${l.timestamp}</td></tr>
+        `).join('');
 
-      renderAnalyticsCharts(data);
+        renderAnalyticsCharts(data);
+      } catch (e) {
+        renderAnalyticsCharts({
+          domain_counts: {},
+          status_counts: { Draft: 0, Submitted: 0, "In Progress": 0, Resolved: 0 },
+          area_counts: {}
+        });
+      }
     }
 
     function renderAnalyticsCharts(data) {
@@ -1648,8 +1689,10 @@
     }
 
     window.onload = async () => {
-      const res = await fetch('/api/boq/rates');
-      scheduleRates = await res.json();
+      try {
+        const res = await fetch('/api/boq/rates');
+        if (res.ok) scheduleRates = await res.json();
+      } catch (e) {}
       loadBoqPreset('road');
       loadAutoSyncedDirectory();
       loadAdminAnalytics();
