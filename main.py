@@ -31,13 +31,14 @@ def _clean_db_url(url: str) -> str:
     )
 
 
-# Neon PostgreSQL Database URL
-DATABASE_URL = _clean_db_url(
-    os.getenv(
-        "DATABASE_URL",
-        "postgresql://neondb_owner:npg_IKCmYNoWdF47@ep-wild-smoke-be5euaix-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
-    ).strip()
-)
+# Neon PostgreSQL Database URL (ignore stale supabase.co env if present)
+_env_db = os.getenv("DATABASE_URL", "").strip()
+if not _env_db or "supabase.co" in _env_db:
+    _env_db = (
+        "postgresql://neondb_owner:npg_IKCmYNoWdF47@ep-wild-smoke-be5euaix-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require"
+    )
+
+DATABASE_URL = _clean_db_url(_env_db)
 
 # OpenAI API Key
 OPENAI_API_KEY = os.getenv(
@@ -60,7 +61,7 @@ _DB_INITIALIZED = False
 
 
 def _raw_connect():
-    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor, connect_timeout=15)
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor, connect_timeout=12)
 
 
 def ensure_db_ready():
@@ -424,7 +425,7 @@ def login(req: LoginReq):
         conn.close()
     except Exception as e:
         print("Login DB Error:", e)
-        raise HTTPException(status_code=500, detail=f"ডাটাবেজ সংযোগ ত্রুটি: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"ডাটাবেজ সংযোগে সমস্যা হয়েছে: {str(e)}")
 
     if user:
         log_audit(user["role"], f"লগইন সেশন ({user['email']})", f"USR-{user['id']}")
