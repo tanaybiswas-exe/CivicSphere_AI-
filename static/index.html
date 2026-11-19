@@ -37,7 +37,7 @@
 <body class="bg-slate-50 text-slate-800 antialiased selection:bg-emerald-200">
 
   <!-- TOAST NOTIFICATIONS -->
-  <div id="toastContainer" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:bottom-5 z-50 space-y-2 pointer-events-none flex flex-col items-center sm:items-end"></div>
+  <div id="toastContainer" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:bottom-5 z-[9999] space-y-2 pointer-events-none flex flex-col items-center sm:items-end"></div>
 
   <!-- CITIZEN LOGIN / REGISTRATION MODAL -->
   <div id="userAuthModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
@@ -60,17 +60,12 @@
                   <stop offset="100%" stop-color="#a7f3d0"/>
                 </linearGradient>
               </defs>
-              <!-- Architectural Civic Shield Crest -->
               <path d="M32 5L53 13.5V30.5C53 44.2 44.1 54.4 32 59C19.9 54.4 11 44.2 11 30.5V13.5L32 5Z" fill="#022c22" stroke="url(#nbShieldGradModal)" stroke-width="2.5" stroke-linejoin="round"/>
-              <!-- Inner Precision Geometric Border -->
               <path d="M32 9.5L48.5 16.2V30.2C48.5 41.3 41.4 49.6 32 53.6C22.6 49.6 15.5 41.3 15.5 30.2V16.2L32 9.5Z" stroke="#34d399" stroke-opacity="0.3" stroke-width="1.2"/>
-              <!-- Crimson Sovereignty Sun Accent -->
               <circle cx="32" cy="20.5" r="5.2" fill="#ef4444"/>
               <circle cx="32" cy="20.5" r="7.5" stroke="#ef4444" stroke-opacity="0.35" stroke-width="1.2"/>
-              <!-- Interlocking Civic Harmony & Partnership Ribbon -->
               <path d="M20 31.5L32 42.5L44 31.5" stroke="url(#nbRibbonGradModal)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
               <path d="M23.5 26.5L32 34.2L40.5 26.5" stroke="#34d399" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-              <!-- Foundation Base Pillar Dot -->
               <circle cx="32" cy="48.5" r="2" fill="#10b981"/>
             </svg>
           </div>
@@ -157,7 +152,7 @@
               <input id="mRegDob" type="date" class="w-full p-3 border border-slate-300 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-600 focus:outline-none" />
             </div>
           </div>
-          <button onclick="executeUserRegister()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-md transition">
+          <button id="regSubmitBtn" onclick="executeUserRegister()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-md transition">
             NID যাচাই ও নিবন্ধন সম্পন্ন করুন
           </button>
         </div>
@@ -283,7 +278,6 @@
       <div>
         <div class="p-6 border-b border-slate-800/80">
           <div class="flex items-center gap-3.5">
-            <!-- Custom নাগরিক বন্ধু (NagorikBondhu) Professional Corporate Vector Emblem -->
             <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-900 via-emerald-950 to-emerald-900 border border-emerald-500/40 flex items-center justify-center shadow-lg p-1.5 shrink-0">
               <svg viewBox="0 0 64 64" class="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="নাগরিক বন্ধু লোগো">
                 <defs>
@@ -961,6 +955,76 @@
       { full_name: "সিস্টেম অ্যাডমিন", email: "admin@civicsphere.gov.bd", phone: "01811000000", password: "admin123", role: "Admin", nid_masked: "ADMIN-001" }
     ];
 
+    function showToast(message, type = "success") {
+      const container = document.getElementById("toastContainer");
+      if (!container) return;
+      const toast = document.createElement("div");
+      const bg = type === "error"
+        ? "bg-red-900 border-red-700"
+        : type === "warn"
+        ? "bg-amber-900 border-amber-700"
+        : "bg-emerald-950 border-emerald-500";
+      toast.className = `${bg} text-white text-xs font-semibold px-4 py-3 rounded-2xl shadow-xl border pointer-events-auto transition-all`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+
+    function downloadTextFile(filename, content) {
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function downloadDraftComplaint() {
+      const txt = document.getElementById("resDraft").value || "";
+      if (!txt.trim()) return showToast("ডাউনলোড করার মতো কোনো খসড়া নেই।", "warn");
+      downloadTextFile("NagorikBondhu_Complaint_Draft.txt", txt);
+      showToast("অভিযোগপত্র ডাউনলোড হয়েছে!");
+    }
+
+    function downloadModalComplaint() {
+      const id = document.getElementById("detTrackingId").textContent || "Complaint";
+      const txt = document.getElementById("detDraftText").textContent || "";
+      downloadTextFile(`${id}_NagorikBondhu.txt`, txt);
+      showToast("অভিযোগ রিপোর্ট ডাউনলোড হয়েছে!");
+    }
+
+    function printTextContent(content, title = "রিপোর্ট") {
+      if (!content || !content.trim()) return showToast("প্রিন্ট করার মতো কোনো তথ্য নেই।", "warn");
+      const win = window.open("", "_blank", "width=800,height=600");
+      if (!win) return showToast("পপ-আপ ব্লক করা আছে, অনুগ্রহ করে অনুমতি দিন।", "warn");
+      const escaped = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      win.document.write(`
+        <html lang="bn"><head><title>${title}</title>
+        <style>body{font-family:'Hind Siliguri',sans-serif;padding:28px;line-height:1.7;color:#0f172a;}pre{white-space:pre-wrap;font-family:inherit;}</style>
+        </head><body><h2>${title}</h2><pre>${escaped}</pre></body></html>
+      `);
+      win.document.close();
+      win.focus();
+      win.print();
+    }
+
+    function toggleMobileDashboardDrawer() {
+      const drawer = document.getElementById('mobileDashboardDrawer');
+      const arrow = document.getElementById('mobileDrawerArrow');
+      if (!drawer) return;
+      drawer.classList.toggle('hidden');
+      if (arrow) {
+        arrow.textContent = drawer.classList.contains('hidden') ? '▼ খুলুন' : '▲ বন্ধ করুন';
+      }
+    }
+
+    function openAdminModal() {
+      document.getElementById('adminLoginModal').classList.remove('hidden');
+    }
+
     function togglePasswordVisibility(inputId, btn) {
       const input = document.getElementById(inputId);
       if (!input) return;
@@ -1079,7 +1143,6 @@
         }
       } catch (e) {}
 
-      // Local fallback update
       if (full_name) currentUser.full_name = full_name;
       updateAuthUI(currentUser);
       document.getElementById('userProfileModal').classList.add('hidden');
@@ -1125,23 +1188,20 @@
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: identifier, identifier: identifier, password })
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            updateAuthUI(data.user);
-            closeAuthModal();
-            showToast("সফলভাবে লগইন হয়েছে!");
-            if (data.user.role === 'Admin') {
-              switchTab('admin');
-            } else if (pendingAction) {
-              executePendingAction(pendingAction);
-            }
-            return;
+        const data = await res.json();
+        if (res.ok && data.success) {
+          updateAuthUI(data.user);
+          closeAuthModal();
+          showToast("সফলভাবে লগইন হয়েছে!");
+          if (data.user.role === 'Admin') {
+            switchTab('admin');
+          } else if (pendingAction) {
+            executePendingAction(pendingAction);
           }
+          return;
         }
       } catch (e) {}
 
-      // Client-side login supporting EITHER Gmail email OR Mobile Number
       const found = localRegisteredUsers.find(u =>
         (u.email.toLowerCase() === identifier.toLowerCase() || (u.phone && u.phone === identifier)) &&
         u.password === password
@@ -1175,7 +1235,6 @@
         return;
       }
 
-      // Enforce strict @gmail.com validation for new account registration
       const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
       if (!gmailRegex.test(email)) {
         showToast("সঠিক @gmail.com ইমেইল ঠিকানা ব্যবহার করুন!", "error");
@@ -1183,7 +1242,6 @@
         return;
       }
 
-      // Validate 11-digit Bangladesh mobile number
       const phoneRegex = /^01[3-9]\d{8}$/;
       if (!phoneRegex.test(phone)) {
         showToast("সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন (যেমন: 017XXXXXXXX)।", "error");
@@ -1203,10 +1261,16 @@
         return;
       }
 
-      if (!nidNumber || nidNumber.length < 10) {
-        showToast("কমপক্ষে ১০ ডিজিটের সঠিক NID নম্বর দিন।", "error");
+      if (!/^\d{10,}$/.test(nidNumber)) {
+        showToast("কমপক্ষে ১০ ডিজিটের সঠিক সংখ্যাযুক্ত NID নম্বর দিন।", "error");
         document.getElementById('mRegNid').focus();
         return;
+      }
+
+      const btn = document.getElementById('regSubmitBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "যাচাই ও নিবন্ধন হচ্ছে...";
       }
 
       const payload = {
@@ -1223,19 +1287,24 @@
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            showToast(data.message || "নিবন্ধন সফল হয়েছে! এখন ইমেইল বা মোবাইল নম্বর দিয়ে লগইন করুন।", "success");
-            document.getElementById('modalIdentifier').value = "";
-            document.getElementById('modalPassword').value = "";
-            switchModalMode('login');
-            return;
-          }
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          if (btn) { btn.disabled = false; btn.textContent = "NID যাচাই ও নিবন্ধন সম্পন্ন করুন"; }
+          showToast(data.message || "নিবন্ধন সফল হয়েছে! এখন ইমেইল বা মোবাইল নম্বর দিয়ে লগইন করুন।", "success");
+          document.getElementById('modalIdentifier').value = payload.email;
+          document.getElementById('modalPassword').value = "";
+          switchModalMode('login');
+          return;
+        } else if (res.status === 400) {
+          if (btn) { btn.disabled = false; btn.textContent = "NID যাচাই ও নিবন্ধন সম্পন্ন করুন"; }
+          showToast(data.detail || "নিবন্ধন ব্যর্থ হয়েছে।", "error");
+          return;
         }
       } catch (e) {}
 
-      // Client-side registration storage
+      // Fallback if backend DB is unreachable
+      if (btn) { btn.disabled = false; btn.textContent = "NID যাচাই ও নিবন্ধন সম্পন্ন করুন"; }
       if (localRegisteredUsers.some(u => u.email.toLowerCase() === payload.email || u.phone === payload.phone)) {
         showToast("এই ইমেইল বা মোবাইল নম্বর দিয়ে ইতিমধ্যে অ্যাকাউন্ট খোলা আছে।", "warn");
         return;
@@ -1250,7 +1319,7 @@
         nid_masked: payload.nid_number.slice(0, 4) + "******" + payload.nid_number.slice(-3)
       });
 
-      document.getElementById('modalIdentifier').value = "";
+      document.getElementById('modalIdentifier').value = payload.email;
       document.getElementById('modalPassword').value = "";
       showToast("নিবন্ধন সফল হয়েছে! এখন ইমেইল বা মোবাইল নম্বর দিয়ে লগইন করুন।", "success");
       switchModalMode('login');
@@ -1715,7 +1784,6 @@
         }
       } catch (e) {}
 
-      // Local 100m Haversine check fallback
       if (!forceCreate) {
         const nearby = allHazardsData.find(h => Math.hypot((h.lat - lat) * 111000, (h.lng - lng) * 101000) < 100);
         if (nearby) {
@@ -1740,7 +1808,7 @@
       filterAndRenderHazards();
     }
 
-    // DOCUMENT ASSISTANT (PDF EXTRACTION + LLM / KEYWORD FALLBACK)
+    // DOCUMENT ASSISTANT
     async function processUploadedPdf(input) {
       const file = input.files[0];
       if (!file) return;
