@@ -1223,15 +1223,17 @@
 
     async function executeUserRegister() {
       const fullName = document.getElementById('mRegName').value.trim();
-      const email = document.getElementById('mRegEmail').value.trim();
-      const phone = document.getElementById('mRegPhone').value.trim();
+      const email = document.getElementById('mRegEmail').value.trim().toLowerCase();
+      let phone = document.getElementById('mRegPhone').value.replace(/\D/g, '');
+      if (phone.startsWith('880') && phone.length === 13) phone = '0' + phone.slice(3);
       const password = document.getElementById('mRegPassword').value;
       const confirmPassword = document.getElementById('mRegConfirmPassword').value;
-      const nidNumber = document.getElementById('mRegNid').value.trim();
-      const dob = document.getElementById('mRegDob').value;
+      const nidNumber = document.getElementById('mRegNid').value.replace(/\D/g, '');
+      const dob = document.getElementById('mRegDob').value || "2000-01-01";
 
       if (!fullName) {
         showToast("অনুগ্রহ করে আপনার পূর্ণ নাম লিখুন।", "error");
+        document.getElementById('mRegName').focus();
         return;
       }
 
@@ -1261,8 +1263,8 @@
         return;
       }
 
-      if (!/^\d{10,}$/.test(nidNumber)) {
-        showToast("কমপক্ষে ১০ ডিজিটের সঠিক সংখ্যাযুক্ত NID নম্বর দিন।", "error");
+      if (nidNumber.length < 10) {
+        showToast("কমপক্ষে ১০ ডিজিটের সঠিক NID নম্বর দিন।", "error");
         document.getElementById('mRegNid').focus();
         return;
       }
@@ -1275,7 +1277,7 @@
 
       const payload = {
         full_name: fullName,
-        email: email.toLowerCase(),
+        email: email,
         phone: phone,
         password: password,
         nid_number: nidNumber,
@@ -1287,7 +1289,8 @@
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const data = await res.json();
+        let data = {};
+        try { data = await res.json(); } catch (err) {}
 
         if (res.ok && data.success) {
           if (btn) { btn.disabled = false; btn.textContent = "NID যাচাই ও নিবন্ধন সম্পন্ন করুন"; }
@@ -1303,7 +1306,6 @@
         }
       } catch (e) {}
 
-      // Fallback if backend DB is unreachable
       if (btn) { btn.disabled = false; btn.textContent = "NID যাচাই ও নিবন্ধন সম্পন্ন করুন"; }
       if (localRegisteredUsers.some(u => u.email.toLowerCase() === payload.email || u.phone === payload.phone)) {
         showToast("এই ইমেইল বা মোবাইল নম্বর দিয়ে ইতিমধ্যে অ্যাকাউন্ট খোলা আছে।", "warn");
