@@ -1,780 +1,1594 @@
-import os
-import math
-import hashlib
-import random
-import json
-import shutil
-import urllib.request
-import urllib.error
-from datetime import datetime
-from fastapi import FastAPI, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from dotenv import load_dotenv
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>নাগরিকবন্ধু (NagorikBondhu) — এআই-চালিত নাগরিক সেবা ও অভিযোগ প্ল্যাটফর্ম</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- PDF.js for client-side real PDF text extraction without fabricating data -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Hind Siliguri', 'Plus Jakarta Sans', sans-serif;
+      font-size: 15px;
+      overflow-x: hidden;
+    }
+    .nav-active {
+      background: linear-gradient(90deg, rgba(16,185,129,0.22) 0%, rgba(16,185,129,0.03) 100%);
+      color: #ffffff;
+      border-left: 4px solid #10b981;
+    }
+    #map { height: 340px; width: 100%; border-radius: 1rem; z-index: 1; }
+    @media (min-width: 768px) {
+      #map { height: 460px; }
+    }
+    #miniMap { height: 210px; width: 100%; border-radius: 1rem; z-index: 1; }
+    @media (min-width: 768px) {
+      #miniMap { height: 240px; }
+    }
+    button, select, input, textarea {
+      touch-action: manipulation;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-emerald-200">
 
-load_dotenv()
+  <!-- TOAST NOTIFICATIONS -->
+  <div id="toastContainer" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:bottom-5 z-50 space-y-2 pointer-events-none flex flex-col items-center sm:items-end"></div>
 
-# Neon PostgreSQL Database URL
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://neondb_owner:npg_IKCmYNoWdF47@ep-wild-smoke-be5euaix-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-).strip()
+  <!-- CITIZEN LOGIN / REGISTRATION MODAL -->
+  <div id="userAuthModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white max-w-5xl w-full rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-slate-200 my-auto relative">
+      <button onclick="closeAuthModal()" class="absolute top-3.5 right-3.5 sm:top-5 sm:right-5 z-20 w-9 h-9 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 font-bold flex items-center justify-center transition">✕</button>
 
-# OpenAI API Key
-OPENAI_API_KEY = os.getenv(
-    "OPENAI_API_KEY",
-    "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"
-).strip()
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+      <!-- Left Panel -->
+      <div class="lg:col-span-5 bg-gradient-to-br from-emerald-950 via-slate-900 to-emerald-900 text-white p-6 sm:p-8 md:p-12 flex flex-col justify-between relative overflow-hidden">
+        <div class="space-y-4 sm:space-y-6 relative z-10">
+          <div class="w-11 h-11 sm:w-12 sm:h-12 bg-emerald-600 rounded-2xl flex items-center justify-center font-extrabold text-lg sm:text-xl shadow-lg border border-red-500/40">না</div>
+          <div class="space-y-2 sm:space-y-3">
+            <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-500/20 px-3 py-1 rounded-md border border-emerald-500/30">এনআইডি যাচাইকৃত প্ল্যাটফর্ম</span>
+            <h2 class="text-2xl sm:text-3xl font-extrabold leading-snug">নাগরিকবন্ধু (NagorikBondhu)</h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">আপনার এলাকার যেকোনো নাগরিক সমস্যা নিয়ে সরকারি নিয়ম অনুযায়ী অভিযোগ প্রস্তুত করুন, অভিযোগের অবস্থা ট্র্যাক করুন এবং সরকারি সেবার সঠিক তথ্য জানুন।</p>
+          </div>
+        </div>
+        <div class="pt-5 sm:pt-8 mt-4 sm:mt-0 border-t border-slate-800 text-xs text-slate-400">
+          Citizen First • CivicSphere AI বাংলাদেশ সংস্করণ
+        </div>
+      </div>
 
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+      <!-- Right Form Panel -->
+      <div class="lg:col-span-7 p-6 sm:p-8 md:p-12 flex flex-col justify-center space-y-5 sm:space-y-6 bg-white">
+        <div class="flex bg-slate-100 p-1.5 rounded-2xl max-w-sm w-full">
+          <button id="tabLoginBtn" onclick="switchModalMode('login')" class="flex-1 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-900 shadow-sm transition">লগইন করুন</button>
+          <button id="tabRegBtn" onclick="switchModalMode('register')" class="flex-1 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-500 hover:text-slate-900 transition">নতুন অ্যাকাউন্ট</button>
+        </div>
 
-app = FastAPI(title="NagorikBondhu — নাগরিকবন্ধু AI", version="3.1")
+        <div class="space-y-1">
+          <h3 id="formHeading" class="text-xl sm:text-2xl font-extrabold text-slate-900">নাগরিকবন্ধু-তে প্রবেশ করুন</h3>
+          <p id="formSub" class="text-xs text-slate-500">আপনার ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করুন। (ডেমো অ্যাকাউন্ট আগে থেকেই বসানো আছে)</p>
+        </div>
 
-if os.path.exists("static"):
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+        <!-- LOGIN FORM -->
+        <div id="modalLoginForm" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">ইমেইল ঠিকানা</label>
+            <input id="modalEmail" type="email" value="tanay@civicsphere.ai" class="w-full p-3 sm:p-3.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none bg-slate-50" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">পাসওয়ার্ড</label>
+            <input id="modalPassword" type="password" value="citizen123" class="w-full p-3 sm:p-3.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-600 focus:outline-none bg-slate-50" />
+          </div>
+          <button onclick="executeUserLogin()" class="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-3.5 rounded-xl shadow-md transition">
+            লগইন করুন
+          </button>
+        </div>
 
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+        <!-- REGISTER FORM -->
+        <div id="modalRegisterForm" class="space-y-3.5 hidden">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">পূর্ণ নাম (জাতীয় পরিচয়পত্র অনুযায়ী)</label>
+            <input id="mRegName" type="text" class="w-full p-3 border border-slate-300 rounded-xl text-sm bg-slate-50" placeholder="যেমন: তনয় বিশ্বাস" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">ইমেইল ঠিকানা</label>
+            <input id="mRegEmail" type="email" class="w-full p-3 border border-slate-300 rounded-xl text-sm bg-slate-50" placeholder="citizen@example.com" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">পাসওয়ার্ড</label>
+            <input id="mRegPassword" type="password" class="w-full p-3 border border-slate-300 rounded-xl text-sm bg-slate-50" placeholder="কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড" />
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">NID / স্মার্ট কার্ড নম্বর (কমপক্ষে ১০ ডিজিট)</label>
+              <input id="mRegNid" type="text" class="w-full p-3 border border-slate-300 rounded-xl text-sm font-mono bg-slate-50" placeholder="1995547891234" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">জন্ম তারিখ</label>
+              <input id="mRegDob" type="date" class="w-full p-3 border border-slate-300 rounded-xl text-sm bg-slate-50" />
+            </div>
+          </div>
+          <button onclick="executeUserRegister()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-md transition">
+            NID যাচাই ও নিবন্ধন সম্পন্ন করুন
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
+  <!-- ADMIN MODAL (HIDDEN FROM INTERFACE) -->
+  <div id="adminLoginModal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white max-w-sm w-full p-6 sm:p-7 rounded-3xl shadow-2xl space-y-4 border border-amber-300 relative">
+      <button onclick="document.getElementById('adminLoginModal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 font-bold">✕</button>
+      <div class="text-center space-y-1">
+        <span class="bg-amber-100 text-amber-800 text-[11px] font-bold px-2.5 py-0.5 rounded uppercase">সংরক্ষিত অ্যাডমিন প্যানেল</span>
+        <h2 class="text-xl font-extrabold text-slate-900 mt-1">অ্যাডমিন লগইন</h2>
+        <p class="text-xs text-slate-500">অ্যানালিটিক্স ও অডিট লগ দেখতে অ্যাডমিন তথ্য দিন</p>
+      </div>
+      <div class="space-y-3">
+        <input id="admEmail" type="email" class="w-full p-3 border rounded-xl text-sm" value="admin@civicsphere.gov.bd" />
+        <input id="admPassword" type="password" class="w-full p-3 border rounded-xl text-sm" value="admin123" />
+        <button onclick="executeAdminLogin()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl text-sm shadow">
+          অ্যাডমিন প্রবেশ করুন
+        </button>
+      </div>
+    </div>
+  </div>
 
-def get_db():
-    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+  <!-- USER PROFILE UPDATE MODAL -->
+  <div id="userProfileModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white max-w-md w-full p-6 sm:p-7 rounded-3xl shadow-2xl space-y-4 relative border border-slate-200">
+      <button onclick="document.getElementById('userProfileModal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 font-bold">✕</button>
+      <div class="space-y-1">
+        <h2 class="text-xl font-extrabold text-slate-900">প্রোফাইল ও পাসওয়ার্ড আপডেট</h2>
+        <p class="text-xs text-slate-500">আপনার নাম পরিবর্তন করতে বা নতুন পাসওয়ার্ড সেট করতে নিচের তথ্য পূরণ করুন।</p>
+      </div>
+      <div class="space-y-3 pt-2">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">আপনার পূর্ণ নাম</label>
+          <input id="updName" type="text" class="w-full p-3 border rounded-xl text-sm bg-slate-50" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">বর্তমান পাসওয়ার্ড (আবশ্যক)</label>
+          <input id="updCurrentPass" type="password" class="w-full p-3 border rounded-xl text-sm bg-slate-50" placeholder="••••••••" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">নতুন পাসওয়ার্ড (পরিবর্তন না করলে খালি রাখুন)</label>
+          <input id="updNewPass" type="password" class="w-full p-3 border rounded-xl text-sm bg-slate-50" placeholder="••••••••" />
+        </div>
+        <button onclick="executeProfileUpdate()" class="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-3 rounded-xl text-sm shadow">
+          পরিবর্তন সংরক্ষণ করুন
+        </button>
+      </div>
+    </div>
+  </div>
 
+  <!-- COMPLAINT DETAILS & STATUS HISTORY MODAL -->
+  <div id="complaintDetailModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white max-w-2xl w-full p-5 sm:p-7 rounded-3xl shadow-2xl space-y-4 sm:space-y-5 relative border border-slate-200 my-auto">
+      <button onclick="document.getElementById('complaintDetailModal').classList.add('hidden')" class="absolute top-4 right-4 sm:top-5 sm:right-5 w-8 h-8 bg-slate-100 rounded-full text-slate-600 font-bold">✕</button>
+      <div class="border-b pb-3 pr-8">
+        <span id="detTrackingId" class="text-xs font-mono font-bold bg-emerald-100 text-emerald-900 px-3 py-1 rounded-full">NB-2026-0000</span>
+        <h2 id="detDomain" class="text-lg sm:text-xl font-extrabold text-slate-900 mt-2">অভিযোগের বিস্তারিত বিবরণ</h2>
+        <p id="detDeptLoc" class="text-xs text-slate-500 mt-1">কর্তৃপক্ষ ও অবস্থান</p>
+      </div>
 
-def hash_pw(pw: str) -> str:
-    return hashlib.sha256(pw.encode("utf-8")).hexdigest()
+      <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-900">
+        <strong>গুরুত্বপূর্ণ তথ্য:</strong> এটি নাগরিকবন্ধু প্ল্যাটফর্মে সংরক্ষিত একটি খসড়া বা ট্র্যাকিং রেকর্ড। সরাসরি সরকারি পোর্টালের সাথে এপিআই যুক্ত না হওয়া পর্যন্ত এটি স্বয়ংক্রিয়ভাবে সরকারি দপ্তরে জমা হয়েছে বলে দাবি করা হয় না।
+      </div>
 
+      <div>
+        <h4 class="text-xs font-bold uppercase text-slate-600 mb-1.5">খসড়া অভিযোগপত্র:</h4>
+        <pre id="detDraftText" class="bg-slate-50 border p-3.5 sm:p-4 rounded-2xl text-xs whitespace-pre-wrap font-sans leading-relaxed max-h-48 overflow-y-auto"></pre>
+      </div>
 
-def call_ai_text(prompt_text: str, system_instruction: str = "") -> str | None:
-    if not OPENAI_API_KEY:
-        return None
-    url = "https://api.openai.com/v1/chat/completions"
-    messages = []
-    if system_instruction:
-        messages.append({"role": "system", "content": system_instruction})
-    messages.append({"role": "user", "content": prompt_text})
+      <div>
+        <h4 class="text-xs font-bold uppercase text-slate-600 mb-2">অবস্থা পরিবর্তনের ইতিহাস (Status History):</h4>
+        <div id="detHistoryList" class="space-y-2 border-l-2 border-emerald-600 pl-4 ml-1"></div>
+      </div>
+    </div>
+  </div>
 
-    payload = {
-        "model": OPENAI_MODEL,
-        "messages": messages,
-        "temperature": 0.4,
+  <!-- TOP GOVERNANCE HEADER -->
+  <header class="bg-emerald-950 text-slate-100 text-xs px-3 sm:px-6 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-2 sm:gap-3 border-b border-emerald-900 sticky top-0 z-40">
+    <div class="flex items-center gap-2 max-w-full lg:max-w-3xl">
+      <span class="bg-red-600 text-white font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded text-[10px] sm:text-[11px] shrink-0">
+        নাগরিক সহায়তা
+      </span>
+      <p class="text-emerald-100 leading-snug text-[11px] sm:text-xs truncate sm:whitespace-normal">
+        <strong>নাগরিকবন্ধু (NagorikBondhu)</strong> একটি স্বাধীন নাগরিক সহায়তা ও তথ্য প্ল্যাটফর্ম—এটি সরকারি ওয়েবসাইট নয়।
+      </p>
+    </div>
+
+    <div class="flex items-center gap-2 sm:gap-3 ml-auto w-full sm:w-auto justify-between sm:justify-end">
+      <div id="sessionUserBadge" class="hidden items-center gap-1.5 bg-emerald-900 px-2.5 py-1 rounded-full border border-emerald-700 text-[11px] text-emerald-200 font-semibold truncate max-w-[160px]">
+        <span id="sessionBadgeText" class="truncate">ভিজিটর মোড</span>
+      </div>
+
+      <div class="relative ml-auto sm:ml-0">
+        <button onclick="openHeaderAuth()" id="headerLoginBtn" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs shadow-sm transition cursor-pointer">
+          🔐 নাগরিক লগইন / নিবন্ধন
+        </button>
+
+        <div id="userDropdownMenu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 text-slate-800">
+          <div class="px-4 py-2 border-b border-slate-100">
+            <p id="dropUserName" class="font-bold text-sm truncate">ব্যবহারকারীর নাম</p>
+            <p id="dropUserRole" class="text-xs text-slate-500">নাগরিক</p>
+          </div>
+          <button onclick="openProfileModal()" class="w-full text-left px-4 py-2.5 text-xs hover:bg-slate-50 font-semibold text-slate-700">⚙️ প্রোফাইল ও পাসওয়ার্ড পরিবর্তন</button>
+          <button onclick="executeUserLogout()" class="w-full text-left px-4 py-2.5 text-xs hover:bg-red-50 text-red-600 font-bold">🚪 লগআউট করুন</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex min-h-[calc(100vh-52px)]">
+    <!-- SIDEBAR NAVIGATION (DESKTOP) -->
+    <aside class="w-72 bg-slate-900 text-slate-300 flex-shrink-0 hidden lg:flex flex-col justify-between border-r border-slate-800">
+      <div>
+        <div class="p-6 border-b border-slate-800/80">
+          <div class="flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-emerald-700 border-2 border-red-500 flex items-center justify-center text-white font-extrabold text-lg shadow-lg">না</div>
+            <div>
+              <h1 class="text-white font-extrabold text-lg tracking-tight">নাগরিকবন্ধু</h1>
+              <p class="text-[11px] text-emerald-400 font-semibold">NagorikBondhu • CivicSphere AI</p>
+            </div>
+          </div>
+        </div>
+
+        <nav class="p-3.5 space-y-1 text-sm font-semibold" id="sidebarNav">
+          <button onclick="switchTab('overview')" data-tab="overview" class="nav-btn nav-active w-full text-left px-4 py-2.5 rounded-xl flex items-center gap-3 transition">
+            <span>🏠</span> <span>হোম ড্যাশবোর্ড</span>
+          </button>
+          <button onclick="switchTab('chat')" data-tab="chat" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>💬</span> <span>বাংলা এআই সহায়ক (চ্যাট)</span>
+          </button>
+          <button onclick="switchTab('assistant')" data-tab="assistant" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>✍️</span> <span>এআই অভিযোগ জেনারেটর</span>
+          </button>
+          <button onclick="switchTab('complaints')" data-tab="complaints" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>📋</span> <span>অভিযোগ ট্র্যাকার</span>
+          </button>
+          <button onclick="switchTab('map')" data-tab="map" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>🗺️</span> <span>স্মার্ট সমস্যা মানচিত্র</span>
+          </button>
+          <button onclick="switchTab('docassistant')" data-tab="docassistant" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>📄</span> <span>ডকুমেন্ট সহায়ক (PDF)</span>
+          </button>
+          <button onclick="switchTab('boq')" data-tab="boq" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>💰</span> <span>প্রকল্প ব্যয় অডিট (BOQ)</span>
+          </button>
+          <button onclick="switchTab('consumer')" data-tab="consumer" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>🏷️</span> <span>ভোক্তা অধিকার (১৬১২১)</span>
+          </button>
+          <button onclick="switchTab('anticorruption')" data-tab="anticorruption" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>🛡️</span> <span>দুর্নীতি প্রতিরোধ (১০৬)</span>
+          </button>
+          <button onclick="switchTab('directory')" data-tab="directory" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl hover:bg-slate-800/70 flex items-center gap-3 transition">
+            <span>🌐</span> <span>সরকারি সেবা নির্দেশিকা</span>
+          </button>
+          <button id="sidebarAdminBtn" onclick="switchTab('admin')" data-tab="admin" class="nav-btn hidden w-full text-left px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold flex items-center gap-3 transition mt-2">
+            <span>📊</span> <span>অ্যাডমিন অ্যানালিটিক্স</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="p-4 m-4 rounded-2xl bg-slate-800/70 border border-slate-700/80 text-xs space-y-2">
+        <p class="font-bold text-emerald-400">জরুরি সরকারি হেল্পলাইন</p>
+        <div class="flex justify-between"><span>জাতীয় জরুরি সেবা</span><span class="font-bold text-white">৯৯৯</span></div>
+        <div class="flex justify-between"><span>দুদক হেল্পলাইন</span><span class="font-bold text-white">১০৬</span></div>
+        <div class="flex justify-between"><span>ভোক্তা অধিকার</span><span class="font-bold text-white">১৬১২১</span></div>
+        <div class="flex justify-between"><span>সরকারি তথ্য ও সেবা</span><span class="font-bold text-white">৩৩৩</span></div>
+      </div>
+    </aside>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="flex-1 p-3.5 sm:p-6 md:p-8 max-w-7xl mx-auto w-full space-y-5 sm:space-y-6">
+
+      <!-- MOBILE TOP DASHBOARD MENU BAR (CLICK TO OPEN / ENTER ANY SECTION) -->
+      <div class="lg:hidden bg-emerald-950 text-white rounded-2xl shadow-md border border-emerald-800 overflow-hidden">
+        <button onclick="toggleMobileDashboardDrawer()" class="w-full px-4 py-3.5 flex items-center justify-between text-left font-bold text-sm">
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-lg bg-emerald-700 border border-red-500 flex items-center justify-center font-extrabold text-sm">☰</span>
+            <div>
+              <p class="text-sm font-extrabold leading-none">নাগরিকবন্ধু ড্যাশবোর্ড মেনু</p>
+              <p id="mobileActivePageLabel" class="text-[11px] text-emerald-300 mt-1">বর্তমান পেজ: হোম ড্যাশবোর্ড • ক্লিক করে মেনু খুলুন</p>
+            </div>
+          </div>
+          <span id="mobileDrawerArrow" class="text-emerald-300 text-xs font-bold">▼ খুলুন</span>
+        </button>
+
+        <div id="mobileDashboardDrawer" class="hidden bg-slate-900 border-t border-emerald-800/70 p-2.5 space-y-1 text-sm font-semibold">
+          <button onclick="mobileSelectTab('overview', 'হোম ড্যাশবোর্ড')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>🏠</span> <span>হোম ড্যাশবোর্ড</span>
+          </button>
+          <button onclick="mobileSelectTab('chat', 'বাংলা এআই সহায়ক (চ্যাট)')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>💬</span> <span>বাংলা এআই সহায়ক (চ্যাট)</span>
+          </button>
+          <button onclick="mobileSelectTab('assistant', 'এআই অভিযোগ জেনারেটর')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>✍️</span> <span>এআই অভিযোগ জেনারেটর</span>
+          </button>
+          <button onclick="mobileSelectTab('complaints', 'অভিযোগ ট্র্যাকার')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>📋</span> <span>অভিযোগ ট্র্যাকার</span>
+          </button>
+          <button onclick="mobileSelectTab('map', 'স্মার্ট সমস্যা মানচিত্র')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>🗺️</span> <span>স্মার্ট সমস্যা মানচিত্র</span>
+          </button>
+          <button onclick="mobileSelectTab('docassistant', 'ডকুমেন্ট সহায়ক (PDF)')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>📄</span> <span>ডকুমেন্ট সহায়ক (PDF)</span>
+          </button>
+          <button onclick="mobileSelectTab('boq', 'প্রকল্প ব্যয় অডিট (BOQ)')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>💰</span> <span>প্রকল্প ব্যয় অডিট (BOQ)</span>
+          </button>
+          <button onclick="mobileSelectTab('consumer', 'ভোক্তা অধিকার (১৬১২১)')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>🏷️</span> <span>ভোক্তা অধিকার (১৬১২১)</span>
+          </button>
+          <button onclick="mobileSelectTab('anticorruption', 'দুর্নীতি প্রতিরোধ (১০৬)')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>🛡️</span> <span>দুর্নীতি প্রতিরোধ (১০৬)</span>
+          </button>
+          <button onclick="mobileSelectTab('directory', 'সরকারি সেবা নির্দেশিকা')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>🌐</span> <span>সরকারি সেবা নির্দেশিকা</span>
+          </button>
+          <button id="mobileAdminDrawerBtn" onclick="mobileSelectTab('admin', 'অ্যাডমিন অ্যানালিটিক্স')" class="hidden w-full text-left px-3.5 py-2.5 rounded-xl bg-amber-500/15 text-amber-300 font-bold flex items-center gap-2.5">
+            <span>📊</span> <span>অ্যাডমিন অ্যানালিটিক্স</span>
+          </button>
+          <div class="pt-2 mt-1 border-t border-slate-800 px-3.5 py-1.5 text-xs text-slate-400">
+            <span>জরুরি হেল্পলাইন: ৯৯৯ • ১০৬ • ১৬১২১ • ৩৩৩</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 1. HOME DASHBOARD -->
+      <section id="tab-overview" class="tab-section space-y-5 sm:space-y-6">
+        <div class="bg-gradient-to-r from-emerald-950 via-emerald-900 to-slate-900 text-white p-5 sm:p-7 md:p-10 rounded-2xl sm:rounded-3xl shadow-lg border border-emerald-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div class="space-y-2.5 sm:space-y-3 max-w-2xl">
+            <span class="inline-block text-[11px] sm:text-xs font-bold bg-red-600 text-white px-3 py-1 rounded-full">স্বাগতম নাগরিকবন্ধু প্ল্যাটফর্মে</span>
+            <h2 class="text-xl sm:text-2xl md:text-4xl font-extrabold leading-tight">সহজ বাংলায় সরকারি সেবার তথ্য জানুন ও নাগরিক অভিযোগ প্রস্তুত করুন</h2>
+            <p class="text-xs sm:text-sm text-emerald-100 leading-relaxed">
+              এই প্ল্যাটফর্মের মাধ্যমে আপনি সরকারি সেবার নিয়মাবলি জানতে পারবেন, এলাকার রাস্তাঘাট বা নাগরিক সমস্যার আনুষ্ঠানিক অভিযোগপত্র তৈরি করতে পারবেন এবং আপনার অভিযোগের অগ্রগতি ট্র্যাক করতে পারবেন।
+            </p>
+          </div>
+          <div class="flex flex-col sm:flex-row flex-wrap gap-2.5 sm:gap-3 w-full md:w-auto shrink-0">
+            <button onclick="switchTab('assistant')" class="bg-white text-emerald-950 hover:bg-emerald-50 font-bold px-5 py-3 rounded-xl sm:rounded-2xl shadow-lg transition text-xs sm:text-sm text-center">
+              ✍️ নতুন অভিযোগ তৈরি করুন
+            </button>
+            <button onclick="switchTab('chat')" class="bg-emerald-700/60 hover:bg-emerald-700 text-white font-semibold px-5 py-3 rounded-xl sm:rounded-2xl border border-emerald-500/40 transition text-xs sm:text-sm text-center">
+              💬 এআই সহায়ককে প্রশ্ন করুন
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI CARDS -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div class="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm">
+            <span class="text-[11px] sm:text-xs font-bold text-slate-500 block">মোট অভিযোগ</span>
+            <p id="kpiTotalComplaints" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1.5 sm:mt-2">0</p>
+          </div>
+          <div class="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm">
+            <span class="text-[11px] sm:text-xs font-bold text-amber-600 block">অপেক্ষমাণ (Pending)</span>
+            <p id="kpiPending" class="text-2xl sm:text-3xl font-extrabold text-amber-700 mt-1.5 sm:mt-2">0</p>
+          </div>
+          <div class="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm">
+            <span class="text-[11px] sm:text-xs font-bold text-blue-600 block">চলমান (In Progress)</span>
+            <p id="kpiInProgress" class="text-2xl sm:text-3xl font-extrabold text-blue-700 mt-1.5 sm:mt-2">0</p>
+          </div>
+          <div class="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm">
+            <span class="text-[11px] sm:text-xs font-bold text-emerald-700 block">সমাধানকৃত (Resolved)</span>
+            <p id="kpiResolved" class="text-2xl sm:text-3xl font-extrabold text-emerald-800 mt-1.5 sm:mt-2">0</p>
+          </div>
+        </div>
+
+        <!-- RECENT COMPLAINTS & MINI MAP PREVIEW -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+          <div class="lg:col-span-7 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex justify-between items-center gap-2">
+              <div>
+                <h3 class="font-extrabold text-base sm:text-lg text-slate-900">সাম্প্রতিক অভিযোগসমূহ</h3>
+                <p class="text-[11px] sm:text-xs text-slate-500">সর্বশেষ সংরক্ষিত অভিযোগের তালিকা</p>
+              </div>
+              <button onclick="switchTab('complaints')" class="text-xs font-bold text-emerald-800 hover:underline shrink-0">সব দেখুন →</button>
+            </div>
+            <div id="homeRecentComplaints" class="space-y-3"></div>
+          </div>
+
+          <div class="lg:col-span-5 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex justify-between items-center gap-2">
+              <div>
+                <h3 class="font-extrabold text-base sm:text-lg text-slate-900">এলাকাভিত্তিক সমস্যা মানচিত্র</h3>
+                <p class="text-[11px] sm:text-xs text-slate-500">ডেমো ডাটা অনুযায়ী চিহ্নিত স্থানসমূহ</p>
+              </div>
+              <button onclick="switchTab('map')" class="text-xs font-bold text-emerald-800 hover:underline shrink-0">বড় ম্যাপ →</button>
+            </div>
+            <div id="miniMap"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. BANGLA AI ASSISTANT (CHAT INTERFACE) -->
+      <section id="tab-chat" class="tab-section hidden space-y-5 sm:space-y-6">
+        <div class="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm space-y-5">
+          <div class="border-b pb-4">
+            <span class="inline-block text-xs font-bold bg-emerald-100 text-emerald-900 px-3 py-1 rounded-full">বাংলা ও ইংরেজি প্রশ্নোত্তর সহায়ক</span>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2">বাংলা এআই নাগরিক সহায়ক (Bangla AI Assistant)</h2>
+            <p class="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+              <strong>কীভাবে ব্যবহার করবেন:</strong> নিচের প্রস্তাবিত প্রশ্নগুলোতে ক্লিক করুন অথবা আপনার নিজের প্রশ্ন বাংলা বা ইংরেজিতে লিখে পাঠান। এখানে ডেমো নির্দেশিকা এবং যাচাইকৃত সরকারি ওয়েবসাইটের লিংক আলাদাভাবে দেখানো হয়।
+            </p>
+          </div>
+
+          <!-- Suggested Questions -->
+          <div class="space-y-2">
+            <p class="text-xs font-bold text-slate-500">প্রস্তাবিত সাধারণ প্রশ্ন (ক্লিক করে উত্তর দেখুন):</p>
+            <div class="flex flex-col sm:flex-row flex-wrap gap-2">
+              <button onclick="askSuggestedChat('জন্ম নিবন্ধন সংশোধন করার নিয়ম কী?')" class="text-left sm:text-center text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 px-3.5 py-2.5 rounded-xl font-semibold transition">
+                📌 জন্ম নিবন্ধন সংশোধন করার নিয়ম কী?
+              </button>
+              <button onclick="askSuggestedChat('ভাঙা রাস্তা বা ড্রেনের সমস্যার অভিযোগ কোথায় করব?')" class="text-left sm:text-center text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 px-3.5 py-2.5 rounded-xl font-semibold transition">
+                📌 ভাঙা রাস্তার অভিযোগ কোথায় করব?
+              </button>
+              <button onclick="askSuggestedChat('সরকারি সেবার জন্য সাধারণত কী কী কাগজপত্র লাগে?')" class="text-left sm:text-center text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 px-3.5 py-2.5 rounded-xl font-semibold transition">
+                📌 সরকারি সেবার জন্য সাধারণত কী কী কাগজপত্র লাগে?
+              </button>
+            </div>
+          </div>
+
+          <!-- Chat History Box -->
+          <div id="chatMessagesBox" class="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 sm:p-4 h-72 sm:h-80 overflow-y-auto space-y-4">
+            <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-emerald-200 shadow-sm max-w-2xl">
+              <span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">স্বাগতম বার্তা</span>
+              <p class="text-xs sm:text-sm text-slate-800 mt-1.5 leading-relaxed">আসসালামু আলাইকুম! আমি নাগরিকবন্ধু এআই সহায়ক। জন্ম নিবন্ধন, পাসপোর্ট, ভোক্তা অধিকার বা এলাকার রাস্তাঘাটের অভিযোগ সম্পর্কে যেকোনো প্রশ্ন করুন।</p>
+            </div>
+          </div>
+
+          <!-- Chat Input -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input id="chatInput" type="text" onkeypress="if(event.key==='Enter') sendChatMessage()" placeholder="এখানে আপনার প্রশ্ন লিখুন..." class="flex-1 border border-slate-300 rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-700 focus:outline-none" />
+            <button onclick="sendChatMessage()" class="bg-emerald-800 hover:bg-emerald-900 text-white font-bold px-6 py-3 rounded-2xl text-sm shadow shrink-0">
+              জিজ্ঞাসা করুন →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. AI COMPLAINT GENERATOR -->
+      <section id="tab-assistant" class="tab-section hidden space-y-5 sm:space-y-6">
+        <div class="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200 space-y-5 sm:space-y-6">
+          <div class="border-b pb-4">
+            <span class="inline-block text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">ধাপ ১: সমস্যার তথ্য দিন</span>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2">এআই অভিযোগ জেনারেটর (AI Complaint Generator)</h2>
+            <p class="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+              <strong>কীভাবে কাজ করে:</strong> আপনার এলাকার সমস্যাটি নিচের ফর্মে লিখুন, জেলা ও এলাকা নির্বাচন করুন এবং প্রয়োজনে ছবি সংযুক্ত করুন। এরপর <strong>"অভিযোগপত্র তৈরি করুন"</strong> বাটনে ক্লিক করলে এআই স্বয়ংক্রিয়ভাবে সঠিক সরকারি দপ্তর ও আইন উল্লেখ করে একটি আনুষ্ঠানিক অভিযোগপত্র তৈরি করে দেবে।
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">জেলা নির্বাচন করুন *</label>
+              <select id="compDistrict" class="w-full rounded-xl border border-slate-300 p-3 text-sm bg-slate-50">
+                <option value="ঢাকা">ঢাকা (Dhaka)</option>
+                <option value="চট্টগ্রাম">চট্টগ্রাম (Chattogram)</option>
+                <option value="রাজশাহী">রাজশাহী (Rajshahi)</option>
+                <option value="খুলনা">খুলনা (Khulna)</option>
+                <option value="সিলেট">সিলেট (Sylhet)</option>
+                <option value="বরিশাল">বরিশাল (Barishal)</option>
+                <option value="রংপুর">রংপুর (Rangpur)</option>
+                <option value="ময়মনসিংহ">ময়মনসিংহ (Mymensingh)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">এলাকা / উপজেলা / ওয়ার্ড *</label>
+              <input id="compArea" type="text" placeholder="যেমন: মিরপুর ১০, আশুলিয়া, ধানমন্ডি" class="w-full rounded-xl border border-slate-300 p-3 text-sm bg-slate-50" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">সমস্যার ধরন (Category)</label>
+              <select id="compCategory" class="w-full rounded-xl border border-slate-300 p-3 text-sm bg-slate-50">
+                <option value="ক্ষতিগ্রস্ত রাস্তা">ক্ষতিগ্রস্ত রাস্তা (Damaged Road)</option>
+                <option value="জলাবদ্ধতা">জলাবদ্ধতা ও ড্রেন (Waterlogging)</option>
+                <option value="বর্জ্য ব্যবস্থাপনা">বর্জ্য ব্যবস্থাপনা (Waste Management)</option>
+                <option value="নষ্ট সড়কবাতি">নষ্ট সড়কবাতি (Broken Streetlight)</option>
+                <option value="ভোক্তা অধিকার">অতিরিক্ত দাম / ভোক্তা অধিকার</option>
+                <option value="দুর্নীতি ও ঘুষ">দুর্নীতি বা ঘুষ দাবি</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">নির্দিষ্ট স্থান বা ল্যান্ডমার্ক (ঐচ্ছিক)</label>
+              <input id="compLandmark" type="text" placeholder="যেমন: সরকারি প্রাথমিক বিদ্যালয়ের সামনে" class="w-full rounded-xl border border-slate-300 p-3 text-sm bg-slate-50" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">প্রমাণ হিসেবে ছবি আপলোড করুন (ঐচ্ছিক)</label>
+              <input id="compPhotoInput" type="file" accept="image/*" onchange="handlePhotoSelect(this)" class="w-full rounded-xl border border-slate-300 p-2 text-xs bg-slate-50" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">সমস্যার বিস্তারিত বিবরণ লিখুন *</label>
+            <textarea id="aiPrompt" rows="4" class="w-full rounded-2xl border border-slate-300 p-3.5 sm:p-4 text-sm focus:ring-2 focus:ring-emerald-700 focus:outline-none bg-slate-50" placeholder="উদাহরণ: আমাদের এলাকার প্রধান সড়কের মাঝখানে বড় গর্ত তৈরি হয়েছে এবং ম্যানহোলের ঢাকনা খোলা থাকায় প্রতিদিন দুর্ঘটনা ঘটছে..."></textarea>
+          </div>
+
+          <button onclick="analyzeIssue()" id="analyzeBtn" class="w-full sm:w-auto bg-emerald-800 hover:bg-emerald-900 text-white font-bold px-6 py-3.5 rounded-2xl shadow-md transition text-sm">
+            ✨ অভিযোগপত্র তৈরি করুন (Generate Complaint)
+          </button>
+        </div>
+
+        <!-- GENERATED DRAFT EDIT & SAVE -->
+        <div id="aiResultCard" class="hidden bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-600/30 space-y-5">
+          <div class="border-b pb-3">
+            <span class="inline-block text-xs font-bold bg-amber-100 text-amber-900 px-3 py-1 rounded-full">ধাপ ২: খসড়া যাচাই, সম্পাদনা ও সংরক্ষণ</span>
+            <h3 class="font-extrabold text-lg sm:text-xl text-slate-900 mt-2">প্রস্তুতকৃত আনুষ্ঠানিক অভিযোগপত্র (সম্পাদনাযোগ্য)</h3>
+            <p class="text-xs text-slate-500">আপনি চাইলে নিচের বক্সে লেখা পরিবর্তন বা সংশোধন করে তারপর সংরক্ষণ করতে পারেন।</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+            <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-200"><span class="text-xs font-bold text-emerald-800">১. সমস্যার খাত</span><p id="resDomain" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
+            <div class="bg-blue-50 p-4 rounded-2xl border border-blue-200"><span class="text-xs font-bold text-blue-800">২. দায়িত্বপ্রাপ্ত কর্তৃপক্ষ</span><p id="resDept" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
+            <div class="bg-purple-50 p-4 rounded-2xl border border-purple-200"><span class="text-xs font-bold text-purple-800">৩. প্রযোজ্য আইন</span><p id="resLaw" class="font-bold text-slate-900 mt-1 text-sm">—</p></div>
+          </div>
+
+          <textarea id="resDraft" rows="10" class="w-full rounded-2xl border border-slate-300 p-3.5 sm:p-4 text-xs sm:text-sm bg-slate-50 leading-relaxed"></textarea>
+
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input type="text" id="evidenceNote" placeholder="সংযুক্ত ছবির নাম বা প্রমাণ নোট" class="flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm bg-white" />
+            <button onclick="requireAuthBeforeAction('saveComplaint')" class="bg-emerald-800 hover:bg-emerald-900 text-white font-bold px-6 py-3 rounded-xl shadow-md text-sm shrink-0">
+              💾 সংরক্ষণ করুন ও ট্র্যাকিং আইডি নিন →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. COMPLAINT TRACKER -->
+      <section id="tab-complaints" class="tab-section hidden space-y-5 sm:space-y-6">
+        <div class="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200 space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+            <div>
+              <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900">অভিযোগ ট্র্যাকার (Complaint Tracker)</h2>
+              <p class="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                <strong>নির্দেশিকা:</strong> আপনার সংরক্ষিত সকল অভিযোগের তালিকা নিচে দেওয়া আছে। যেকোনো অভিযোগের <strong>"বিস্তারিত ও ইতিহাস"</strong> বাটনে ক্লিক করে পূর্ণাঙ্গ খসড়া ও স্ট্যাটাস পরিবর্তনের ইতিহাস দেখতে পারবেন।
+              </p>
+            </div>
+            <button onclick="loadComplaints()" class="text-xs bg-slate-900 text-white font-bold px-4 py-2.5 rounded-xl shrink-0 self-start sm:self-auto">↻ তালিকা রিফ্রেশ করুন</button>
+          </div>
+
+          <div id="complaintsEmptyState" class="hidden text-center py-10 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-3">
+            <p class="text-base sm:text-lg font-bold text-slate-700">এখনো কোনো অভিযোগ সংরক্ষণ করা হয়নি!</p>
+            <p class="text-xs text-slate-500">নতুন অভিযোগ তৈরি করতে "এআই অভিযোগ জেনারেটর" ব্যবহার করুন।</p>
+            <button onclick="switchTab('assistant')" class="bg-emerald-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl">+ অভিযোগ তৈরি করুন</button>
+          </div>
+
+          <div id="complaintsTableWrapper" class="overflow-x-auto border border-slate-200 rounded-2xl">
+            <table class="w-full text-left border-collapse text-xs sm:text-sm min-w-[680px]">
+              <thead>
+                <tr class="bg-emerald-950 text-white text-xs">
+                  <th class="p-3.5 sm:p-4">ট্র্যাকিং আইডি</th>
+                  <th class="p-3.5 sm:p-4">তারিখ</th>
+                  <th class="p-3.5 sm:p-4">সমস্যার ধরন ও কর্তৃপক্ষ</th>
+                  <th class="p-3.5 sm:p-4">জেলা ও এলাকা</th>
+                  <th class="p-3.5 sm:p-4">বর্তমান অবস্থা</th>
+                  <th class="p-3.5 sm:p-4">অবস্থা পরিবর্তন</th>
+                  <th class="p-3.5 sm:p-4">বিস্তারিত</th>
+                </tr>
+              </thead>
+              <tbody id="complaintsTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. SMART ISSUE MAP -->
+      <section id="tab-map" class="tab-section hidden space-y-5 sm:space-y-6">
+        <div class="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200 space-y-5">
+          <div class="border-b pb-4">
+            <span class="inline-block text-xs font-bold bg-red-100 text-red-800 px-3 py-1 rounded-full">ডেমো ও লাইভ জিওস্পেশাল ডাটা</span>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2">স্মার্ট নাগরিক সমস্যা মানচিত্র (Smart Issue Map)</h2>
+            <p class="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+              <strong>ব্যবহারবিধি:</strong> ক্যাটাগরি ও স্ট্যাটাস দিয়ে সমস্যা ফিল্টার করুন। নতুন সমস্যা যোগ করতে ম্যাপের নির্দিষ্ট স্থানে ক্লিক করুন এবং নিচের ফর্মে তথ্য দিয়ে পিন করুন (১০০ মিটারের মধ্যে একই সমস্যা থাকলে ডুপ্লিকেট সতর্কতা দেখাবে)।
+            </p>
+          </div>
+
+          <!-- Filter Bar -->
+          <div class="flex flex-col sm:flex-row gap-3 bg-slate-50 p-3.5 sm:p-4 rounded-2xl border">
+            <select id="mapFilterCat" onchange="filterAndRenderHazards()" class="w-full sm:w-auto rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs font-bold bg-white">
+              <option value="ALL">সকল ক্যাটাগরি (All Categories)</option>
+              <option value="ক্ষতিগ্রস্ত রাস্তা">ক্ষতিগ্রস্ত রাস্তা</option>
+              <option value="বর্জ্য ব্যবস্থাপনা">বর্জ্য ব্যবস্থাপনা</option>
+              <option value="জলাবদ্ধতা">জলাবদ্ধতা</option>
+              <option value="নষ্ট সড়কবাতি">নষ্ট সড়কবাতি</option>
+            </select>
+            <select id="mapFilterStatus" onchange="filterAndRenderHazards()" class="w-full sm:w-auto rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs font-bold bg-white">
+              <option value="ALL">সকল অবস্থা (All Status)</option>
+              <option value="Open">চলমান / খোলা (Open)</option>
+              <option value="In Progress">কাজ চলছে (In Progress)</option>
+              <option value="Resolved">সমাধানকৃত (Resolved)</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
+            <div class="lg:col-span-2"><div id="map"></div></div>
+            <div class="space-y-4">
+              <div class="bg-slate-50 p-4 sm:p-5 rounded-2xl border space-y-3">
+                <h3 class="font-bold text-slate-900 text-sm">নতুন সমস্যা ম্যাপে পিন করুন</h3>
+                <input id="hazTitle" type="text" placeholder="সমস্যার সংক্ষিপ্ত শিরোনাম" class="w-full rounded-xl border p-3 text-sm bg-white" />
+                <select id="hazCat" class="w-full rounded-xl border p-3 text-sm bg-white">
+                  <option value="ক্ষতিগ্রস্ত রাস্তা">ক্ষতিগ্রস্ত রাস্তা</option>
+                  <option value="বর্জ্য ব্যবস্থাপনা">বর্জ্য ব্যবস্থাপনা</option>
+                  <option value="জলাবদ্ধতা">জলাবদ্ধতা</option>
+                  <option value="নষ্ট সড়কবাতি">নষ্ট সড়কবাতি</option>
+                </select>
+                <div class="grid grid-cols-2 gap-2">
+                  <input id="hazLat" type="number" step="any" value="23.8103" class="p-2.5 border rounded-xl text-xs bg-white font-mono" />
+                  <input id="hazLng" type="number" step="any" value="90.4125" class="p-2.5 border rounded-xl text-xs bg-white font-mono" />
+                </div>
+                <button onclick="requireAuthBeforeAction('pinHazard')" class="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-3 rounded-xl text-sm">
+                  📍 ম্যাপে পিন করুন (১০০মি. চেকসহ)
+                </button>
+              </div>
+
+              <div id="dupWarningBox" class="hidden bg-amber-50 border border-amber-300 p-4 rounded-2xl text-xs space-y-2.5">
+                <p class="font-bold text-amber-900">⚠️ ১০০ মিটারের মধ্যে একই সমস্যা ইতিমধ্যে রিপোর্ট করা হয়েছে!</p>
+                <p id="dupDetails" class="text-amber-800"></p>
+                <div class="flex flex-wrap gap-2">
+                  <button id="dupUpvoteBtn" class="bg-amber-600 text-white px-3 py-1.5 rounded-lg font-bold">▲ সমর্থন (Upvote) দিন</button>
+                  <button onclick="realPinHazard(true)" class="bg-slate-800 text-white px-3 py-1.5 rounded-lg">আলাদাভাবে পিন করুন</button>
+                </div>
+              </div>
+
+              <div id="hazardListContainer" class="space-y-2 max-h-56 overflow-y-auto"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. DOCUMENT ASSISTANT (PDF Q&A) -->
+      <section id="tab-docassistant" class="tab-section hidden space-y-5 sm:space-y-6">
+        <div class="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200 space-y-5 sm:space-y-6">
+          <div class="border-b pb-4">
+            <span class="inline-block text-xs font-bold bg-blue-100 text-blue-900 px-3 py-1 rounded-full">সরাসরি পিডিএফ (PDF) বিশ্লেষণ</span>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2">সরকারি নির্দেশিকা ডকুমেন্ট সহায়ক (Document Assistant)</h2>
+            <p class="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+              <strong>কীভাবে ব্যবহার করবেন:</strong> আপনার কম্পিউটার বা মোবাইল থেকে যেকোনো সরকারি নীতিমালা বা ফর্মের PDF ফাইল আপলোড করুন। ফাইলটি প্রসেস হওয়ার পর ভেতরের তথ্য সম্পর্কে প্রশ্ন করলে ডকুমেন্টের রেফারেন্সসহ উত্তর পাবেন। (কোনো ফাইল আপলোড না করলে কাল্পনিক উত্তর দেওয়া হয় না।)
+            </p>
+          </div>
+
+          <div class="bg-slate-50 p-4 sm:p-6 rounded-2xl border-2 border-dashed border-slate-300 space-y-3">
+            <label class="block text-xs sm:text-sm font-bold text-slate-800">১. সরকারি সেবার PDF ফাইল নির্বাচন করুন:</label>
+            <input type="file" id="pdfUploadInput" accept="application/pdf" onchange="processUploadedPdf(this)" class="block w-full text-xs sm:text-sm text-slate-600 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-800 file:text-white hover:file:bg-emerald-900" />
+            <p id="pdfStatusText" class="text-xs text-slate-500 font-semibold">এখনো কোনো PDF ডকুমেন্ট আপলোড করা হয়নি।</p>
+          </div>
+
+          <div class="space-y-3">
+            <label class="block text-xs sm:text-sm font-bold text-slate-800">২. আপলোড করা ডকুমেন্ট সম্পর্কে প্রশ্ন করুন:</label>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input id="pdfQuestionInput" type="text" placeholder="ডকুমেন্টের ভেতরের কোনো শব্দ বা তথ্য লিখে খুঁজুন..." class="flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm bg-white" />
+              <button onclick="askPdfDocument()" class="bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 py-3 rounded-xl text-sm shrink-0">
+                উত্তর খুঁজুন
+              </button>
+            </div>
+          </div>
+
+          <div id="pdfAnswerBox" class="hidden bg-emerald-50 border border-emerald-200 p-4 sm:p-5 rounded-2xl space-y-2">
+            <span class="text-xs font-bold bg-emerald-800 text-white px-2.5 py-0.5 rounded">ডকুমেন্ট রেফারেন্স ফলাফল</span>
+            <p id="pdfAnswerText" class="text-xs sm:text-sm text-slate-800 leading-relaxed"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. BOQ AUDIT -->
+      <section id="tab-boq" class="tab-section hidden space-y-5 sm:space-y-6">
+        <div class="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200 space-y-5 sm:space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+            <div>
+              <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900">সরকারি প্রকল্পের ব্যয় ও BOQ স্বচ্ছতা অডিট</h2>
+              <p class="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                <strong>নির্দেশিকা:</strong> স্থানীয় রাস্তা বা কালভার্ট নির্মাণের দরপত্রের (BOQ) রেটগুলো LGED বা PWD-এর সরকারি শিডিউল রেটের সাথে তুলনা করে অতিরিক্ত ব্যয় যাচাই করুন।
+              </p>
+            </div>
+            <div class="flex gap-2 shrink-0">
+              <button onclick="loadBoqPreset('road')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3.5 py-2 rounded-xl">রাস্তার ডেমো</button>
+              <button onclick="loadBoqPreset('culvert')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3.5 py-2 rounded-xl">কালভার্ট ডেমো</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 sm:p-5 rounded-2xl border">
+            <div><label class="block text-xs font-bold text-slate-700 mb-1">প্রকল্পের নাম</label><input id="boqProjectName" type="text" value="উপজেলা সংযোগ সড়ক মেরামত প্রকল্প" class="w-full rounded-xl border p-3 text-sm bg-white" /></div>
+            <div><label class="block text-xs font-bold text-slate-700 mb-1">সরকারি শিডিউল মানদণ্ড</label><select id="boqAgency" class="w-full rounded-xl border p-3 text-sm bg-white font-semibold"><option value="LGED">LGED শিডিউল</option><option value="PWD">PWD শিডিউল</option></select></div>
+            <div><label class="block text-xs font-bold text-slate-700 mb-1">বরাদ্দকৃত বাজেট (টাকা)</label><input id="boqBudget" type="number" value="2500000" class="w-full rounded-xl border p-3 text-sm bg-white font-semibold" /></div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex justify-between items-center">
+              <h3 class="font-bold text-slate-800 text-sm">কাজের আইটেম ও দর (BOQ Items)</h3>
+              <button onclick="addBoqRow()" class="text-xs bg-slate-900 text-white font-bold px-4 py-2 rounded-xl">+ নতুন আইটেম</button>
+            </div>
+            <div id="boqRowsContainer" class="space-y-2.5"></div>
+          </div>
+
+          <button onclick="runBoqAudit()" class="w-full sm:w-auto bg-emerald-800 hover:bg-emerald-900 text-white font-bold px-6 py-3.5 rounded-2xl shadow-sm text-sm">
+            🔍 আর্থিক ও দর অডিট চালান
+          </button>
+        </div>
+
+        <div id="boqResultPanel" class="hidden bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-sm border space-y-5 sm:space-y-6">
+          <div id="boqAlertBanner" class="p-4 rounded-xl border font-bold text-xs sm:text-sm"></div>
+          <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div class="p-3.5 sm:p-4 bg-slate-50 rounded-2xl border"><span class="text-[11px] sm:text-xs text-slate-500 font-bold">বরাদ্দকৃত বাজেট</span><p id="mAllocated" class="text-base sm:text-lg font-extrabold mt-1">৳০</p></div>
+            <div class="p-3.5 sm:p-4 bg-emerald-50 rounded-2xl border"><span class="text-[11px] sm:text-xs text-emerald-800 font-bold">সরকারি শিডিউল</span><p id="mBenchmark" class="text-base sm:text-lg font-extrabold text-emerald-900 mt-1">৳০</p></div>
+            <div class="p-3.5 sm:p-4 bg-blue-50 rounded-2xl border"><span class="text-[11px] sm:text-xs text-blue-800 font-bold">প্রস্তাবিত মূল্য</span><p id="mQuoted" class="text-base sm:text-lg font-extrabold text-blue-900 mt-1">৳০</p></div>
+            <div class="p-3.5 sm:p-4 bg-amber-50 rounded-2xl border"><span class="text-[11px] sm:text-xs text-amber-800 font-bold">বাজেট পার্থক্য</span><p id="mBudgetVar" class="text-base sm:text-lg font-extrabold text-amber-900 mt-1">০%</p></div>
+            <div class="p-3.5 sm:p-4 bg-red-50 rounded-2xl border col-span-2 lg:col-span-1"><span class="text-[11px] sm:text-xs text-red-800 font-bold">শিডিউল পার্থক্য</span><p id="mSchedVar" class="text-base sm:text-lg font-extrabold text-red-900 mt-1">০%</p></div>
+          </div>
+          <div class="overflow-x-auto border rounded-2xl">
+            <table class="w-full text-left text-xs sm:text-sm min-w-[600px]">
+              <thead><tr class="bg-slate-900 text-white text-xs"><th class="p-3.5 sm:p-4">কাজের বিবরণ</th><th class="p-3.5 sm:p-4">পরিমাণ</th><th class="p-3.5 sm:p-4">সরকারি দর</th><th class="p-3.5 sm:p-4">প্রস্তাবিত দর</th><th class="p-3.5 sm:p-4">পার্থক্য %</th><th class="p-3.5 sm:p-4">নির্দেশক</th></tr></thead>
+              <tbody id="boqAuditTable" class="divide-y"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. CONSUMER RIGHTS -->
+      <section id="tab-consumer" class="tab-section hidden space-y-5 sm:space-y-6">
+        <div class="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-sm border space-y-5 sm:space-y-6 max-w-3xl">
+          <div class="border-b pb-4">
+            <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900">ভোক্তা অধিকার ও ২৫% নাগরিক পুরস্কার ক্যালকুলেটর</h2>
+            <p class="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+              <strong>তথ্য:</strong> কোনো দোকানি পণ্যের গায়ে লেখা সর্বোচ্চ খুচরা মূল্য (MRP)-এর চেয়ে বেশি দাম রাখলে ১৬১২১ নম্বরে অভিযোগ করতে পারেন। অভিযোগ প্রমাণিত হলে আদায়কৃত জরিমানার ২৫% অভিযোগকারী নাগরিক পুরস্কার হিসেবে পান।
+            </p>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div><label class="block text-xs font-bold text-slate-700 mb-1">পণ্যের নির্ধারিত MRP (টাকা)</label><input id="calcMrp" type="number" value="175" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3 text-sm font-semibold bg-slate-50" /></div>
+            <div><label class="block text-xs font-bold text-slate-700 mb-1">দোকানির আদায়কৃত মূল্য (টাকা)</label><input id="calcCharged" type="number" value="215" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3 text-sm font-semibold bg-slate-50" /></div>
+            <div><label class="block text-xs font-bold text-slate-700 mb-1">সম্ভাব্য জরিমানা (টাকা)</label><input id="calcFine" type="number" value="10000" oninput="calculateConsumerReward()" class="w-full rounded-xl border p-3 text-sm font-semibold bg-slate-50" /></div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-emerald-950 text-white p-4 sm:p-6 rounded-2xl text-center">
+            <div class="py-2 sm:py-0 border-b sm:border-b-0 sm:border-r border-emerald-800"><span class="text-xs text-emerald-300 font-bold">অতিরিক্ত আদায়</span><p id="resOvercharge" class="text-xl sm:text-2xl font-extrabold text-red-400 mt-1">৳৪০</p></div>
+            <div class="py-2 sm:py-0 border-b sm:border-b-0 sm:border-r border-emerald-800"><span class="text-xs text-emerald-300 font-bold">অতিরিক্ত হার %</span><p id="resOverchargePct" class="text-xl sm:text-2xl font-extrabold text-amber-400 mt-1">২২.৯%</p></div>
+            <div class="py-2 sm:py-0"><span class="text-xs text-emerald-300 font-bold">২৫% নাগরিক পুরস্কার</span><p id="resReward" class="text-xl sm:text-2xl font-extrabold text-emerald-400 mt-1">৳২,৫০০</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 9. ANTI-CORRUPTION -->
+      <section id="tab-anticorruption" class="tab-section hidden space-y-5 sm:space-y-6">
+        <div class="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-sm border space-y-4">
+          <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900">গোপনীয় দুর্নীতি প্রতিরোধ ও হুইসেলব্লোয়ার সুরক্ষা নির্দেশিকা</h2>
+          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            <strong>জনস্বার্থ-সংশ্লিষ্ট তথ্য প্রকাশ (সুরক্ষা প্রদান) আইন, ২০১১</strong> অনুযায়ী কোনো নাগরিক জনস্বার্থে দুর্নীতির তথ্য প্রকাশ করলে তার পরিচয় গোপন রাখা হয় এবং তাকে আইনি সুরক্ষা প্রদান করা হয়। ঘুষ বা দুর্নীতির অভিযোগ জানাতে সরাসরি দুদকের টোল-ফ্রি হেল্পলাইন <strong>১০৬</strong>-এ কল করুন।
+          </p>
+        </div>
+      </section>
+
+      <!-- 10. GOVERNMENT SERVICES DIRECTORY -->
+      <section id="tab-directory" class="tab-section hidden space-y-5 sm:space-y-6">
+        <div class="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-sm border space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+            <div>
+              <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900">যাচাইকৃত সরকারি সেবা ও পোর্টাল নির্দেশিকা</h2>
+              <p class="text-xs sm:text-sm text-slate-600 mt-1">নিচের লিংকগুলোতে ক্লিক করে সরাসরি বাংলাদেশ সরকারের অফিশিয়াল সেবা পোর্টালে প্রবেশ করতে পারবেন।</p>
+            </div>
+            <span class="text-xs bg-emerald-100 text-emerald-900 font-bold px-3.5 py-1.5 rounded-full self-start sm:self-auto">✓ অফিশিয়াল পোর্টাল তালিকা</span>
+          </div>
+          <div id="directoryGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5"></div>
+        </div>
+      </section>
+
+      <!-- 11. ADMIN ANALYTICS -->
+      <section id="tab-admin" class="tab-section hidden space-y-5 sm:space-y-6">
+        <div class="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-sm border border-amber-300 space-y-6">
+          <div class="border-b pb-4">
+            <span class="inline-block text-xs font-bold bg-amber-100 text-amber-900 px-3 py-1 rounded-full">ডেমো ও লাইভ পরিসংখ্যান ড্যাশবোর্ড</span>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2">অ্যাডমিন অ্যানালিটিক্স ও অডিট লেজার (Admin Analytics)</h2>
+            <p class="text-xs sm:text-sm text-slate-600 mt-1">এখানে অভিযোগের ধরন, বর্তমান অবস্থা এবং এলাকাভিত্তিক সমস্যার পরিসংখ্যান চার্ট আকারে দেখানো হয়েছে।</p>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <div class="p-4 bg-slate-50 border rounded-2xl"><span class="text-xs text-slate-500 font-bold">মোট অভিযোগ</span><p id="admComplaints" class="text-2xl font-extrabold mt-1">0</p></div>
+            <div class="p-4 bg-emerald-50 border rounded-2xl"><span class="text-xs text-emerald-800 font-bold">সমাধানকৃত কেস</span><p id="admResolved" class="text-2xl font-extrabold mt-1">0</p></div>
+            <div class="p-4 bg-amber-50 border rounded-2xl"><span class="text-xs text-amber-800 font-bold">নিবন্ধিত নাগরিক</span><p id="admUsers" class="text-2xl font-extrabold mt-1">0</p></div>
+            <div class="p-4 bg-purple-50 border rounded-2xl"><span class="text-xs text-purple-800 font-bold">ম্যাপে পিনকৃত সমস্যা</span><p id="admHazards" class="text-2xl font-extrabold mt-1">0</p></div>
+          </div>
+
+          <!-- CHARTS ROW -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
+            <div class="bg-slate-50 p-4 sm:p-5 rounded-2xl border">
+              <h4 class="text-xs font-bold text-slate-700 mb-3">অভিযোগের ধরন (Categories)</h4>
+              <canvas id="chartCategories" height="220"></canvas>
+            </div>
+            <div class="bg-slate-50 p-4 sm:p-5 rounded-2xl border">
+              <h4 class="text-xs font-bold text-slate-700 mb-3">অভিযোগের অবস্থা (Status Distribution)</h4>
+              <canvas id="chartStatus" height="220"></canvas>
+            </div>
+            <div class="bg-slate-50 p-4 sm:p-5 rounded-2xl border">
+              <h4 class="text-xs font-bold text-slate-700 mb-3">এলাকাভিত্তিক রিপোর্ট (By Area)</h4>
+              <canvas id="chartArea" height="220"></canvas>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto border rounded-2xl">
+            <table class="w-full text-left text-xs min-w-[520px]">
+              <thead class="bg-slate-900 text-white">
+                <tr><th class="p-3.5">ইভেন্ট #</th><th class="p-3.5">ব্যবহারকারীর ভূমিকা</th><th class="p-3.5">সম্পাদিত কার্যক্রম</th><th class="p-3.5">সময়কাল</th></tr>
+              </thead>
+              <tbody id="auditLogBody" class="divide-y bg-white"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    let currentUser = null;
+    let pendingAction = null;
+    let mapInstance = null;
+    let miniMapInstance = null;
+    let mapLayers = [];
+    let allHazardsData = [];
+    let allComplaintsData = [];
+    let scheduleRates = {};
+    let extractedPdfText = "";
+    let chartInstances = {};
+
+    function showToast(message, type = "success") {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      const bg = type === "error" ? "bg-red-900 border-red-700" : type === "warn" ? "bg-amber-900 border-amber-700" : "bg-emerald-950 border-emerald-500";
+      toast.className = `${bg} text-white text-xs font-semibold px-4 py-3 rounded-2xl shadow-xl border pointer-events-auto transition-all`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3500);
     }
 
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=25) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-            choices = body.get("choices") or []
-            if choices:
-                content = ((choices[0].get("message") or {}).get("content") or "").strip()
-                if content:
-                    return content
-    except Exception as e:
-        print("OpenAI API fallback:", e)
-    return None
-
-
-def init_db():
-    if not DATABASE_URL:
-        print("DATABASE_URL not found!")
-        return
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            full_name TEXT,
-            email TEXT UNIQUE,
-            password_hash TEXT,
-            nid_number TEXT UNIQUE,
-            dob TEXT,
-            role TEXT DEFAULT 'Citizen',
-            is_verified INT DEFAULT 1,
-            created_at TEXT
-        )
-        """)
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS complaints (
-            id SERIAL PRIMARY KEY,
-            tracking_id TEXT UNIQUE,
-            citizen_nid TEXT,
-            external_ref TEXT,
-            domain TEXT,
-            department TEXT,
-            district TEXT DEFAULT 'ঢাকা',
-            area TEXT DEFAULT 'মিরপুর ১০',
-            description TEXT,
-            draft_text TEXT,
-            status TEXT DEFAULT 'Draft',
-            status_history TEXT DEFAULT '[]',
-            evidence_note TEXT,
-            created_at TEXT
-        )
-        """)
-        cur.execute("ALTER TABLE complaints ADD COLUMN IF NOT EXISTS district TEXT DEFAULT 'ঢাকা'")
-        cur.execute("ALTER TABLE complaints ADD COLUMN IF NOT EXISTS area TEXT DEFAULT 'মিরপুর ১০'")
-        cur.execute("ALTER TABLE complaints ADD COLUMN IF NOT EXISTS status_history TEXT DEFAULT '[]'")
-
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS hazards (
-            id SERIAL PRIMARY KEY,
-            title TEXT,
-            category TEXT,
-            lat DOUBLE PRECISION,
-            lng DOUBLE PRECISION,
-            upvotes INT DEFAULT 1,
-            status TEXT DEFAULT 'Open',
-            created_at TEXT
-        )
-        """)
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS audit_logs (
-            id SERIAL PRIMARY KEY,
-            actor_role TEXT,
-            action TEXT,
-            target_id TEXT,
-            timestamp TEXT
-        )
-        """)
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS govt_services (
-            id SERIAL PRIMARY KEY,
-            service_name TEXT,
-            ministry TEXT,
-            fee TEXT,
-            sla_timeline TEXT,
-            portal_url TEXT,
-            last_auto_synced TEXT
-        )
-        """)
-
-        cur.execute("SELECT COUNT(*) as cnt FROM users")
-        if cur.fetchone()['cnt'] == 0:
-            cur.execute(
-                "INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                ('সিস্টেম অ্যাডমিনিস্ট্রেটর', 'admin@civicsphere.gov.bd', hash_pw('admin123'), '1995547891234', '1995-05-12', 'Admin', 1, '2026-01-01')
-            )
-            cur.execute(
-                "INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                ('তনয় বিশ্বাস বন্ধন', 'tanay@civicsphere.ai', hash_pw('citizen123'), '2000269874512', '2000-04-22', 'Citizen', 1, '2026-01-02')
-            )
-
-        cur.execute("SELECT COUNT(*) as cnt FROM hazards")
-        if cur.fetchone()['cnt'] == 0:
-            demo_hazards = [
-                ("[ডেমো] মিরপুর ১০ গোলচত্বর সংলগ্ন ভাঙা রাস্তা", "ক্ষতিগ্রস্ত রাস্তা", 23.8069, 90.3687, 14, "Open", "2026-11-10"),
-                ("[ডেমো] উত্তরা ৭ নম্বর সেক্টরে জলাবদ্ধতা", "জলাবদ্ধতা", 23.8682, 90.3984, 9, "In Progress", "2026-11-12"),
-                ("[ডেমো] ধানমন্ডি ২৭ নম্বর রাস্তার নষ্ট সড়কবাতি", "নষ্ট সড়কবাতি", 23.7561, 90.3753, 6, "Open", "2026-11-14"),
-                ("[ডেমো] গুলশান ১ বর্জ্য ব্যবস্থাপনা সমস্যা", "বর্জ্য ব্যবস্থাপনা", 23.7808, 90.4161, 11, "Resolved", "2026-11-15")
-            ]
-            for h in demo_hazards:
-                cur.execute("INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s)", h)
-
-        cur.execute("SELECT COUNT(*) as cnt FROM govt_services")
-        if cur.fetchone()['cnt'] == 0:
-            services = [
-                ("কেন্দ্রীয় অভিযোগ প্রতিকার ব্যবস্থা (GRS)", "মন্ত্রিপরিষদ বিভাগ", "বিনামূল্যে (Free)", "১৫–৩০ কার্যদিবস", "https://grs.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
-                ("দুর্নীতি দমন কমিশন (ACC / দুদক)", "স্বাধীন কমিশন", "বিনামূল্যে (Free)", "হেল্পলাইন ১০৬", "https://acc.org.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
-                ("জাতীয় ভোক্তা অধিকার সংরক্ষণ অধিদপ্তর (DNCRP)", "বাণিজ্য মন্ত্রণালয়", "বিনামূল্যে (Free)", "৩০ দিনের মধ্যে", "https://dncrp.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M")),
-                ("স্থানীয় সরকার প্রকৌশল অধিদপ্তর (LGED)", "স্থানীয় সরকার বিভাগ", "বিনামূল্যে (Free)", "১৫–২১ কার্যদিবস", "https://lged.gov.bd", datetime.now().strftime("%Y-%m-%d %H:%M"))
-            ]
-            for s in services:
-                cur.execute("INSERT INTO govt_services (service_name, ministry, fee, sla_timeline, portal_url, last_auto_synced) VALUES (%s, %s, %s, %s, %s, %s)", s)
-
-        conn.commit()
-        cur.close()
-        conn.close()
-        print("NagorikBondhu Neon DB initialized successfully.")
-    except Exception as e:
-        print("Neon DB Init Error:", e)
-
-
-@app.on_event("startup")
-def startup_event():
-    init_db()
-
-
-@app.get("/", response_class=HTMLResponse)
-def read_index():
-    if os.path.exists("static/index.html"):
-        with open("static/index.html", "r", encoding="utf-8") as f:
-            return f.read()
-    return "NagorikBondhu Backend Running. static/index.html not found."
-
-
-def log_audit(role: str, action: str, target_id: str):
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO audit_logs (actor_role, action, target_id, timestamp) VALUES (%s, %s, %s, %s)",
-            (role, action, target_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception:
-        pass
-
-
-def haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    R = 6371000.0
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-
-SCHEDULE_RATES = {
-    "earthwork_cum": {"name": "মাটি খনন কাজ (Earthwork - প্রতি ঘনমিটার)", "lged": 320.0, "pwd": 340.0, "unit": "m³"},
-    "brick_flat_soling_sqm": {"name": "১ম শ্রেণির ইটের সলিং (Brick Soling - প্রতি বর্গমিটার)", "lged": 680.0, "pwd": 710.0, "unit": "m²"},
-    "rcc_concrete_cum": {"name": "আরসিসি ঢালাই কাজ (RCC 1:2:4 - প্রতি ঘনমিটার)", "lged": 11500.0, "pwd": 11900.0, "unit": "m³"},
-    "ms_rebar_kg": {"name": "৬০-গ্রেড এমএস রড (MS Rebar - প্রতি কেজি)", "lged": 96.0, "pwd": 98.5, "unit": "kg"},
-    "bituminous_carpeting_sqm": {"name": "২৫মিমি বিটুমিনাস কার্পেটিং (প্রতি বর্গমিটার)", "lged": 890.0, "pwd": 920.0, "unit": "m²"},
-}
-
-
-@app.post("/api/upload-evidence")
-async def upload_evidence(file: UploadFile = File(...)):
-    safe_name = os.path.basename(file.filename or "evidence_file")
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    stored_name = f"{stamp}_{safe_name}"
-    file_path = os.path.join(UPLOAD_DIR, stored_name)
-    try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        return {
-            "success": True,
-            "filename": safe_name,
-            "stored_name": stored_name,
-            "url": f"/uploads/{stored_name}"
-        }
-    except Exception as e:
-        print("Upload Error:", e)
-        raise HTTPException(status_code=500, detail="ফাইল সংরক্ষণ করতে সমস্যা হয়েছে।")
-
-
-class ChatReq(BaseModel):
-    question: str
-
-
-@app.post("/api/chat")
-def citizen_chat(req: ChatReq):
-    q = req.question.strip()
-    if not q:
-        raise HTTPException(status_code=400, detail="প্রশ্ন খালি রাখা যাবে না।")
-
-    verified_link = "https://bangladesh.gov.bd"
-    verified_title = "বাংলাদেশ জাতীয় তথ্য বাতায়ন"
-    ql = q.lower()
-    if "জন্ম" in q or "birth" in ql:
-        verified_link = "https://bdris.gov.bd"
-        verified_title = "জন্ম ও মৃত্যু নিবন্ধন পোর্টাল (BDRIS)"
-    elif "রাস্তা" in q or "road" in ql or "অভিযোগ" in q:
-        verified_link = "https://grs.gov.bd"
-        verified_title = "কেন্দ্রীয় অভিযোগ প্রতিকার ব্যবস্থা (GRS)"
-    elif "কাগজ" in q or "document" in ql or "সেবা" in q:
-        verified_link = "https://services.portal.gov.bd"
-        verified_title = "সরকারি সেবা পোর্টাল"
-
-    ai_reply = call_ai_text(
-        f"নাগরিকের প্রশ্ন: {q}\nবাংলাদেশের প্রেক্ষাপটে সহজ বাংলায় সংক্ষিপ্ত ও স্পষ্ট সহায়ক উত্তর দিন। কোনো কাল্পনিক আইন বা সরকারি নীতি বানাবেন না; সন্দেহ হলে অফিশিয়াল পোর্টাল যাচাই করতে বলুন।",
-        system_instruction="আপনি নাগরিকবন্ধু (NagorikBondhu) প্ল্যাটফর্মের বাংলা এআই নাগরিক সহায়ক।"
-    )
-
-    if ai_reply:
-        return {
-            "source_type": "AI সহায়ক (OpenAI)",
-            "answer": ai_reply,
-            "verified_title": verified_title,
-            "verified_url": verified_link
-        }
-
-    if "জন্ম" in q or "birth" in ql:
-        demo_answer = "জন্ম নিবন্ধন সংশোধনের জন্য অনলাইনে BDRIS পোর্টালে আবেদন করতে হয়। আবেদন কপির সাথে বয়স প্রমাণের সনদ (SSC সনদ বা টিকা কার্ড) ও অভিভাবকের NID কপি সংযুক্ত করে নিজ ইউনিয়ন পরিষদ বা সিটি কর্পোরেশন অফিসে জমা দিতে হয়।"
-    elif "রাস্তা" in q or "road" in ql:
-        demo_answer = "ভাঙা রাস্তা বা ড্রেনেজ সমস্যার জন্য স্থানীয় সিটি কর্পোরেশন, পৌরসভা বা এলজিইডি (LGED) বরাবর লিখিত অভিযোগ করতে হয়। আপনি আমাদের 'এআই অভিযোগ জেনারেটর' ট্যাব থেকে এখনই একটি আনুষ্ঠানিক অভিযোগপত্র তৈরি করতে পারেন।"
-    elif "কাগজ" in q or "document" in ql:
-        demo_answer = "যেকোনো সরকারি সেবার জন্য সাধারণত: (১) জাতীয় পরিচয়পত্র (NID) বা জন্ম নিবন্ধন সনদ, (২) সদ্য তোলা পাসপোর্ট সাইজের ছবি, এবং (৩) নাগরিকত্ব বা ঠিকানার প্রমাণপত্র প্রয়োজন হয়।"
-    else:
-        demo_answer = "আপনার প্রশ্নটি নাগরিকবন্ধু ডেমো সহায়ক সিস্টেমে প্রক্রিয়াকরণ করা হয়েছে। সুনির্দিষ্ট সরকারি নীতির জন্য নিচের যাচাইকৃত পোর্টাল দেখুন।"
-
-    return {
-        "source_type": "ডেমো সহায়ক উত্তর (Demo Guidance)",
-        "answer": demo_answer,
-        "verified_title": verified_title,
-        "verified_url": verified_link
+    function toggleMobileDashboardDrawer() {
+      const drawer = document.getElementById('mobileDashboardDrawer');
+      const arrow = document.getElementById('mobileDrawerArrow');
+      if (!drawer) return;
+      drawer.classList.toggle('hidden');
+      if (arrow) {
+        arrow.textContent = drawer.classList.contains('hidden') ? '▼ খুলুন' : '▲ বন্ধ করুন';
+      }
     }
 
-
-class DocAskReq(BaseModel):
-    question: str
-    document_text: str
-
-
-@app.post("/api/doc/ask")
-def ask_doc_api(req: DocAskReq):
-    doc_txt = (req.document_text or "").strip()
-    q = (req.question or "").strip()
-    if not doc_txt:
-        return {"found": False, "answer": "আগে একটি PDF ফাইল আপলোড করুন। অনুমান করে কোনো উত্তর দেওয়া হয় না।"}
-    if not q:
-        return {"found": False, "answer": "অনুগ্রহ করে আপনার প্রশ্ন বা শব্দ লিখুন।"}
-
-    ai_ans = call_ai_text(
-        f"নিচের PDF ডকুমেন্টের তথ্য অনুযায়ী প্রশ্নের উত্তর দিন। ডকুমেন্টে উত্তর না থাকলে স্পষ্টভাবে বলুন যে ডকুমেন্টে তথ্যটি নেই; নিজের থেকে বানিয়ে কিছু লিখবেন না।\n\nডকুমেন্ট:\n{doc_txt[:12000]}\n\nপ্রশ্ন: {q}",
-        system_instruction="আপনি শুধুমাত্র প্রদত্ত PDF ডকুমেন্টের তথ্যের ভিত্তিতে উত্তর প্রদান করবেন।"
-    )
-    if ai_ans:
-        return {"found": True, "source_type": "AI ডকুমেন্ট বিশ্লেষণ (OpenAI)", "answer": ai_ans}
-
-    keywords = [w for w in q.split() if len(w) > 2]
-    sentences = doc_txt.split("।")
-    matches = [s.strip() for s in sentences if any(k.lower() in s.lower() for k in keywords)]
-    if matches:
-        return {
-            "found": True,
-            "source_type": "ডকুমেন্ট রেফারেন্স ফলাফল",
-            "answer": f"<strong>আপলোডকৃত ডকুমেন্ট থেকে প্রাপ্ত প্রাসঙ্গিক অংশ:</strong><br><br>\"{'। '.join(matches[:3])}।\""
-        }
-    return {
-        "found": False,
-        "source_type": "ডকুমেন্ট রেফারেন্স ফলাফল",
-        "answer": "আপলোডকৃত PDF ডকুমেন্টে আপনার প্রশ্নের সাথে সরাসরি মিলে এমন কোনো তথ্য খুঁজে পাওয়া যায়নি।"
+    function mobileSelectTab(tabId, label) {
+      const drawer = document.getElementById('mobileDashboardDrawer');
+      const arrow = document.getElementById('mobileDrawerArrow');
+      const activeLabel = document.getElementById('mobileActivePageLabel');
+      if (drawer) drawer.classList.add('hidden');
+      if (arrow) arrow.textContent = '▼ খুলুন';
+      if (activeLabel && label) activeLabel.textContent = `বর্তমান পেজ: ${label}`;
+      switchTab(tabId);
     }
 
+    function applyAdminVisibility(isAdmin) {
+      const sideBtn = document.getElementById('sidebarAdminBtn');
+      const mobDrawerBtn = document.getElementById('mobileAdminDrawerBtn');
+      if (isAdmin) {
+        if (sideBtn) sideBtn.classList.remove('hidden');
+        if (mobDrawerBtn) mobDrawerBtn.classList.remove('hidden');
+      } else {
+        if (sideBtn) sideBtn.classList.add('hidden');
+        if (mobDrawerBtn) mobDrawerBtn.classList.add('hidden');
+      }
+    }
 
-class LoginReq(BaseModel):
-    email: str
-    password: str
+    // AUTH & PROFILE UI
+    function updateAuthUI(user) {
+      currentUser = user;
+      const loginBtn = document.getElementById('headerLoginBtn');
+      const badge = document.getElementById('sessionUserBadge');
+      const dropdown = document.getElementById('userDropdownMenu');
 
+      if (user) {
+        loginBtn.textContent = `👤 ${user.full_name.split(' ')[0]} ▾`;
+        loginBtn.onclick = () => dropdown.classList.toggle('hidden');
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+        document.getElementById('sessionBadgeText').textContent = `✓ ${user.full_name} (${user.role})`;
+        document.getElementById('dropUserName').textContent = user.full_name;
+        document.getElementById('dropUserRole').textContent = user.role;
+        applyAdminVisibility(user.role === 'Admin');
+      } else {
+        loginBtn.textContent = `🔐 নাগরিক লগইন / নিবন্ধন`;
+        loginBtn.onclick = openHeaderAuth;
+        badge.classList.remove('flex');
+        badge.classList.add('hidden');
+        dropdown.classList.add('hidden');
+        applyAdminVisibility(false);
+      }
+    }
 
-@app.post("/api/auth/login")
-def login(req: LoginReq):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE email = %s AND password_hash = %s", (req.email.strip().lower(), hash_pw(req.password)))
-    user = cur.fetchone()
-    cur.close()
-    conn.close()
-    if user:
-        log_audit(user["role"], f"লগইন সেশন ({user['email']})", f"USR-{user['id']}")
-        return {
-            "success": True,
-            "user": {
-                "id": user["id"],
-                "full_name": user["full_name"],
-                "email": user["email"],
-                "role": user["role"],
-                "nid_masked": f"****-****-{user['nid_number'][-4:]}" if user['nid_number'] else "****"
-            }
+    function openHeaderAuth() {
+      if (currentUser) {
+        document.getElementById('userDropdownMenu').classList.toggle('hidden');
+      } else {
+        document.getElementById('userAuthModal').classList.remove('hidden');
+      }
+    }
+
+    function closeAuthModal() {
+      document.getElementById('userAuthModal').classList.add('hidden');
+      pendingAction = null;
+    }
+
+    function executeUserLogout() {
+      currentUser = null;
+      updateAuthUI(null);
+      document.getElementById('userDropdownMenu').classList.add('hidden');
+      showToast("সফলভাবে লগআউট সম্পন্ন হয়েছে।");
+      switchTab('overview');
+    }
+
+    function openProfileModal() {
+      document.getElementById('userDropdownMenu').classList.add('hidden');
+      if (!currentUser) return openHeaderAuth();
+      document.getElementById('updName').value = currentUser.full_name;
+      document.getElementById('updCurrentPass').value = "";
+      document.getElementById('updNewPass').value = "";
+      document.getElementById('userProfileModal').classList.remove('hidden');
+    }
+
+    async function executeProfileUpdate() {
+      const full_name = document.getElementById('updName').value;
+      const current_password = document.getElementById('updCurrentPass').value;
+      const new_password = document.getElementById('updNewPass').value;
+
+      if (!current_password) {
+        showToast("প্রোফাইল আপডেট করতে বর্তমান পাসওয়ার্ড দিন।", "error");
+        return;
+      }
+
+      const res = await fetch('/api/auth/update-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentUser.email, full_name, current_password, new_password })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        currentUser.full_name = data.user.full_name;
+        updateAuthUI(currentUser);
+        document.getElementById('userProfileModal').classList.add('hidden');
+        showToast("প্রোফাইল সফলভাবে আপডেট হয়েছে!");
+      } else {
+        showToast(data.detail || "প্রোফাইল আপডেট ব্যর্থ হয়েছে।", "error");
+      }
+    }
+
+    function switchModalMode(mode) {
+      const loginTab = document.getElementById('tabLoginBtn');
+      const regTab = document.getElementById('tabRegBtn');
+      const loginForm = document.getElementById('modalLoginForm');
+      const regForm = document.getElementById('modalRegisterForm');
+      const heading = document.getElementById('formHeading');
+      const sub = document.getElementById('formSub');
+
+      if (mode === 'register') {
+        regTab.className = "flex-1 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-900 shadow-sm transition";
+        loginTab.className = "flex-1 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-500 hover:text-slate-900 transition";
+        loginForm.classList.add('hidden');
+        regForm.classList.remove('hidden');
+        heading.textContent = "নতুন নাগরিক অ্যাকাউন্ট খুলুন";
+        sub.textContent = "আপনার জাতীয় পরিচয়পত্র (NID) নম্বর দিয়ে নিবন্ধন করুন।";
+      } else {
+        loginTab.className = "flex-1 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-900 shadow-sm transition";
+        regTab.className = "flex-1 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-500 hover:text-slate-900 transition";
+        regForm.classList.add('hidden');
+        loginForm.classList.remove('hidden');
+        heading.textContent = "নাগরিকবন্ধু-তে প্রবেশ করুন";
+        sub.textContent = "আপনার ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করুন।";
+      }
+    }
+
+    async function executeUserLogin() {
+      const email = document.getElementById('modalEmail').value;
+      const password = document.getElementById('modalPassword').value;
+      const res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        updateAuthUI(data.user);
+        closeAuthModal();
+        showToast("সফলভাবে লগইন হয়েছে!");
+        if (data.user.role === 'Admin') {
+          switchTab('admin');
+        } else if (pendingAction) {
+          executePendingAction(pendingAction);
         }
-    raise HTTPException(status_code=401, detail="ভুল ইমেইল অথবা পাসওয়ার্ড দেওয়া হয়েছে।")
+      } else {
+        showToast(data.detail || "লগইন ব্যর্থ হয়েছে।", "error");
+      }
+    }
 
+    async function executeUserRegister() {
+      const payload = {
+        full_name: document.getElementById('mRegName').value,
+        email: document.getElementById('mRegEmail').value,
+        password: document.getElementById('mRegPassword').value,
+        nid_number: document.getElementById('mRegNid').value,
+        dob: document.getElementById('mRegDob').value
+      };
+      const res = await fetch('/api/auth/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message, "success");
+        switchModalMode('login');
+      } else {
+        showToast(data.detail || "নিবন্ধন ব্যর্থ হয়েছে।", "error");
+      }
+    }
 
-class RegReq(BaseModel):
-    full_name: str
-    email: str
-    password: str
-    nid_number: str
-    dob: str
+    function requireAuthBeforeAction(actionName) {
+      if (!currentUser) {
+        pendingAction = actionName;
+        showToast("অনুগ্রহ করে আগে নাগরিক অ্যাকাউন্টে লগইন করুন।", "warn");
+        openHeaderAuth();
+      } else {
+        executePendingAction(actionName);
+      }
+    }
 
+    function executePendingAction(actionName) {
+      if (actionName === 'saveComplaint') realSaveComplaint();
+      if (actionName === 'pinHazard') realPinHazard(false);
+      pendingAction = null;
+    }
 
-@app.post("/api/auth/register")
-def register(req: RegReq):
-    nid = req.nid_number.strip()
-    if not nid.isdigit() or len(nid) < 10:
-        raise HTTPException(status_code=400, detail="সঠিক এনআইডি (NID) নম্বর দিন (কমপক্ষে ১০ ডিজিট)।")
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) 
-            VALUES (%s, %s, %s, %s, %s, 'Citizen', 1, %s)
-            RETURNING id
-        """, (req.full_name.strip(), req.email.strip().lower(), hash_pw(req.password), nid, req.dob.strip(), datetime.now().strftime("%Y-%m-%d")))
+    async function executeAdminLogin() {
+      const email = document.getElementById('admEmail').value;
+      const password = document.getElementById('admPassword').value;
+      const res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.user.role === 'Admin') {
+        updateAuthUI(data.user);
+        document.getElementById('adminLoginModal').classList.add('hidden');
+        const activeLabel = document.getElementById('mobileActivePageLabel');
+        if (activeLabel) activeLabel.textContent = "বর্তমান পেজ: অ্যাডমিন অ্যানালিটিক্স";
+        switchTab('admin');
+        showToast("অ্যাডমিন অ্যাক্সেস অনুমোদিত হয়েছে।");
+      } else {
+        showToast("অ্যাডমিন তথ্য সঠিক নয়।", "error");
+      }
+    }
 
-        uid = cur.fetchone()['id']
-        conn.commit()
-        cur.close()
-        conn.close()
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-section').forEach(el => el.classList.add('hidden'));
+      document.getElementById('tab-' + tabId).classList.remove('hidden');
 
-        log_audit("Citizen", f"নতুন নাগরিক নিবন্ধন (****{nid[-4:]})", f"USR-{uid}")
-        return {"success": True, "message": "এনআইডি যাচাই সফল! অ্যাকাউন্ট তৈরি হয়েছে, এখন লগইন করুন।"}
-    except Exception as e:
-        print("Register Error:", e)
-        raise HTTPException(status_code=400, detail="এই ইমেইল বা এনআইডি দিয়ে আগেই অ্যাকাউন্ট খোলা হয়েছে।")
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('nav-active'));
+      const activeBtn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
+      if (activeBtn) activeBtn.classList.add('nav-active');
 
+      if (tabId === 'overview') { loadAdminAnalytics(); loadComplaints(); initMiniMap(); }
+      if (tabId === 'admin') loadAdminAnalytics();
+      if (tabId === 'complaints') loadComplaints();
+      if (tabId === 'map') initMap();
+      if (tabId === 'directory') loadAutoSyncedDirectory();
+      if (tabId === 'boq') loadBoqPreset('road');
+    }
 
-class UpdateProfileReq(BaseModel):
-    email: str
-    full_name: str
-    current_password: str
-    new_password: str = ""
+    // BANGLA AI ASSISTANT CHAT
+    function askSuggestedChat(q) {
+      document.getElementById('chatInput').value = q;
+      sendChatMessage();
+    }
 
+    function sendChatMessage() {
+      const input = document.getElementById('chatInput');
+      const q = input.value.trim();
+      if (!q) return;
 
-@app.post("/api/auth/update-profile")
-def update_profile(req: UpdateProfileReq):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT * FROM users WHERE email = %s AND password_hash = %s",
-        (req.email.strip().lower(), hash_pw(req.current_password))
-    )
-    user = cur.fetchone()
+      const box = document.getElementById('chatMessagesBox');
+      box.innerHTML += `
+        <div class="flex justify-end">
+          <div class="bg-emerald-800 text-white p-3.5 rounded-2xl max-w-[85%] sm:max-w-lg text-xs sm:text-sm shadow-sm">
+            ${q}
+          </div>
+        </div>
+      `;
+      input.value = "";
 
-    if not user:
-        cur.close()
-        conn.close()
-        raise HTTPException(status_code=400, detail="বর্তমান পাসওয়ার্ডটি সঠিক নয়।")
+      let demoAnswer = "আপনার প্রশ্নটি নাগরিকবন্ধু ডেমো সহায়ক সিস্টেমে প্রক্রিয়াকরণ করা হয়েছে। সুনির্দিষ্ট সরকারি নীতির জন্য নিচের যাচাইকৃত পোর্টাল দেখুন।";
+      let verifiedLink = "https://bangladesh.gov.bd";
+      let verifiedTitle = "বাংলাদেশ জাতীয় তথ্য বাতায়ন";
 
-    try:
-        if req.new_password.strip():
-            new_hash = hash_pw(req.new_password.strip())
-            cur.execute(
-                "UPDATE users SET full_name = %s, password_hash = %s WHERE email = %s",
-                (req.full_name.strip(), new_hash, req.email.strip().lower())
-            )
-        else:
-            cur.execute(
-                "UPDATE users SET full_name = %s WHERE email = %s",
-                (req.full_name.strip(), req.email.strip().lower())
-            )
+      if (q.includes("জন্ম") || q.toLowerCase().includes("birth")) {
+        demoAnswer = "জন্ম নিবন্ধন সংশোধনের জন্য অনলাইনে BDRIS পোর্টালে আবেদন করতে হয়। আবেদন কপির সাথে বয়স প্রমাণের সনদ (SSC সনদ বা টিকা কার্ড) ও অভিভাবকের NID কপি সংযুক্ত করে নিজ ইউনিয়ন পরিষদ বা সিটি কর্পোরেশন অফিসে জমা দিতে হয়।";
+        verifiedLink = "https://bdris.gov.bd";
+        verifiedTitle = "জন্ম ও মৃত্যু নিবন্ধন পোর্টাল (BDRIS)";
+      } else if (q.includes("রাস্তা") || q.toLowerCase().includes("road")) {
+        demoAnswer = "ভাঙা রাস্তা বা ড্রেনেজ সমস্যার জন্য স্থানীয় সিটি কর্পোরেশন, পৌরসভা বা এলজিইডি (LGED) বরাবর লিখিত অভিযোগ করতে হয়। আপনি আমাদের 'এআই অভিযোগ জেনারেটর' ট্যাব থেকে এখনই একটি আনুষ্ঠানিক অভিযোগপত্র তৈরি করতে পারেন।";
+        verifiedLink = "https://grs.gov.bd";
+        verifiedTitle = "কেন্দ্রীয় অভিযোগ প্রতিকার ব্যবস্থা (GRS)";
+      } else if (q.includes("কাগজ") || q.toLowerCase().includes("document")) {
+        demoAnswer = "যেকোনো সরকারি সেবার জন্য সাধারণত: (১) জাতীয় পরিচয়পত্র (NID) বা জন্ম নিবন্ধন সনদ, (২) সদ্য তোলা পাসপোর্ট সাইজের ছবি, এবং (৩) নাগরিকত্ব বা ঠিকানার প্রমাণপত্র প্রয়োজন হয়।";
+        verifiedLink = "https://services.portal.gov.bd";
+        verifiedTitle = "সরকারি সেবা পোর্টাল";
+      }
 
-        conn.commit()
-        cur.execute("SELECT * FROM users WHERE email = %s", (req.email.strip().lower(),))
-        updated_user = cur.fetchone()
-        cur.close()
-        conn.close()
+      setTimeout(() => {
+        box.innerHTML += `
+          <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-sm max-w-[92%] sm:max-w-2xl space-y-2.5">
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded">ডেমো সহায়ক উত্তর (Demo Guidance)</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-800 leading-relaxed">${demoAnswer}</p>
+            <div class="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span class="text-emerald-800 font-bold">✓ যাচাইকৃত সরকারি সূত্র:</span>
+              <a href="${verifiedLink}" target="_blank" class="text-blue-700 font-bold hover:underline">${verifiedTitle} ↗</a>
+            </div>
+          </div>
+        `;
+        box.scrollTop = box.scrollHeight;
+      }, 300);
+    }
 
-        log_audit(updated_user["role"], f"প্রোফাইল আপডেট ({updated_user['email']})", f"USR-{updated_user['id']}")
-        return {
-            "success": True,
-            "user": {
-                "id": updated_user["id"],
-                "full_name": updated_user["full_name"],
-                "email": updated_user["email"],
-                "role": updated_user["role"],
-                "nid_masked": f"****-****-{updated_user['nid_number'][-4:]}" if updated_user['nid_number'] else "****"
-            }
-        }
-    except Exception as e:
-        print("Profile Update Error:", e)
-        raise HTTPException(status_code=400, detail="প্রোফাইল আপডেট করতে সমস্যা হয়েছে।")
+    // COMPLAINT GENERATOR
+    function handlePhotoSelect(input) {
+      if (input.files && input.files[0]) {
+        document.getElementById('evidenceNote').value = `ছবি সংযুক্ত: ${input.files[0].name}`;
+        showToast(`ছবি নির্বাচিত হয়েছে: ${input.files[0].name}`);
+      }
+    }
 
+    async function analyzeIssue() {
+      const prompt = document.getElementById('aiPrompt').value.trim();
+      const district = document.getElementById('compDistrict').value;
+      const area = document.getElementById('compArea').value.trim();
+      const category = document.getElementById('compCategory').value;
+      const landmark = document.getElementById('compLandmark').value.trim();
 
-class AnalyzeReq(BaseModel):
-    prompt: str
-    district: str = "ঢাকা"
-    area: str = ""
-    category: str = ""
-    lang: str = "bn"
+      if (!prompt) return showToast("অনুগ্রহ করে সমস্যার বিস্তারিত বিবরণ লিখুন।", "warn");
+      const fullArea = landmark ? `${area} (${landmark})` : area;
 
+      const res = await fetch('/api/assistant/analyze', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, district, area: fullArea, category, lang: "bn" })
+      });
+      const data = await res.json();
+      document.getElementById('resDomain').textContent = data.domain;
+      document.getElementById('resDept').textContent = data.department;
+      document.getElementById('resLaw').textContent = data.law;
+      document.getElementById('resDraft').value = data.draft;
+      document.getElementById('aiResultCard').classList.remove('hidden');
+      showToast("অভিযোগপত্র প্রস্তুত হয়েছে! নিচে দেখে সংরক্ষণ করুন।");
+    }
 
-@app.post("/api/assistant/analyze")
-def analyze_issue(req: AnalyzeReq):
-    p = (req.prompt + " " + req.category).lower()
-    if any(k in p for k in ["bribe", "ghush", "ঘুষ", "দুর্নীতি", "corruption"]):
-        domain, dept, law = "দুর্নীতি ও ঘুষ প্রতিরোধ", "দুর্নীতি দমন কমিশন (ACC / দুদক)", "দুর্নীতি প্রতিরোধ আইন, ১৯৪৭"
-    elif any(k in p for k in ["price", "mrp", "দাম", "overcharge", "ভোক্তা"]):
-        domain, dept, law = "ভোক্তা অধিকার সংরক্ষণ", "জাতীয় ভোক্তা অধিকার সংরক্ষণ অধিদপ্তর (DNCRP)", "ভোক্তা অধিকার সংরক্ষণ আইন, ২০০৯"
-    elif any(k in p for k in ["water", "জলাবদ্ধতা", "ড্রেন", "drain"]):
-        domain, dept, law = "জলাবদ্ধতা ও পয়ঃনিষ্কাশন", "ওয়াসা (WASA) / সিটি কর্পোরেশন", "স্থানীয় সরকার (সিটি কর্পোরেশন) আইন, ২০০৯"
-    elif any(k in p for k in ["waste", "বর্জ্য", "ময়লা", "garbage"]):
-        domain, dept, law = "বর্জ্য ব্যবস্থাপনা ও পরিচ্ছন্নতা", "সিটি কর্পোরেশন / পৌরসভা বর্জ্য ব্যবস্থাপনা বিভাগ", "স্থানীয় সরকার আইন, ২০০৯"
-    elif any(k in p for k in ["light", "বাতি", "streetlight"]):
-        domain, dept, law = "সড়কবাতি ও বিদ্যুৎ", "সিটি কর্পোরেশন বিদ্যুৎ বিভাগ / ডিপিডিসি", "বিদ্যুৎ আইন, ২০১৮"
-    else:
-        domain, dept, law = "ক্ষতিগ্রস্ত রাস্তা ও অবকাঠামো", "সিটি কর্পোরেশন / এলজিইডি (LGED)", "স্থানীয় সরকার প্রকৌশল বিধিমালা"
-
-    loc_text = f"জেলা: {req.district}, এলাকা: {req.area}" if req.area else f"জেলা: {req.district}"
-
-    ai_draft = call_ai_text(
-        f"জেলা: {req.district}\nএলাকা: {req.area or 'নির্ধারিত নয়'}\nক্যাটাগরি: {req.category or domain}\nকর্তৃপক্ষ: {dept}\nপ্রযোজ্য আইন: {law}\nসমস্যার বিবরণ: {req.prompt}\n\nউপরের তথ্যের ভিত্তিতে একটি পরিশীলিত ও আনুষ্ঠানিক বাংলা নাগরিক অভিযোগপত্র তৈরি করুন।",
-        system_instruction="আপনি বাংলাদেশের নাগরিক অভিযোগপত্র খসড়া তৈরির সহায়ক। নির্ভুল ও প্রাঞ্জল বাংলায় আনুষ্ঠানিক আবেদনপত্র লিখুন।"
-    )
-
-    draft = ai_draft if ai_draft else (
-        f"বরাবর,\n"
-        f"দায়িত্বপ্রাপ্ত কর্মকর্তা,\n"
-        f"{dept}\n"
-        f"{loc_text}\n\n"
-        f"বিষয়: {domain} সংক্রান্ত আনুষ্ঠানিক নাগরিক অভিযোগ।\n\n"
-        f"জনাব,\n"
-        f"বিনীত নিবেদন এই যে, আমি {loc_text} এলাকার একজন সচেতন নাগরিক। আমাদের এলাকায় নিচের সমস্যাটি জনদুর্ভোগ সৃষ্টি করছে:\n"
-        f"\" {req.prompt} \"\n\n"
-        f"প্রযোজ্য আইন/বিধি ({law}) অনুযায়ী বিষয়টি দ্রুত তদন্তপূর্বক প্রয়োজনীয় ব্যবস্থা গ্রহণের জন্য বিনীত অনুরোধ জানাচ্ছি।\n\n"
-        f"বিনীত নিবেদক,\n"
-        f"একজন ভুক্তভোগী নাগরিক\n"
-        f"[দ্রষ্টব্য: এটি নাগরিকবন্ধু এআই জেনারেটেড খসড়া অভিযোগ]"
-    )
-    return {"domain": domain, "department": dept, "law": law, "draft": draft}
-
-
-class ComplaintReq(BaseModel):
-    citizen_nid: str
-    domain: str
-    department: str
-    district: str = "ঢাকা"
-    area: str = ""
-    description: str
-    draft_text: str
-    evidence_note: str = "কোনো ফাইল সংযুক্ত নেই"
-
-
-@app.post("/api/complaints")
-def create_complaint(req: ComplaintReq):
-    tracking_id = f"NB-2026-{random.randint(1200, 9999)}"
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-    init_history = json.dumps([{"stage": "Draft", "time": now_str, "note": "অভিযোগের খসড়া তৈরি ও সংরক্ষণ করা হয়েছে"}], ensure_ascii=False)
-
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO complaints (tracking_id, citizen_nid, external_ref, domain, department, district, area, description, draft_text, status, status_history, evidence_note, created_at) 
-        VALUES (%s, %s, 'অপেক্ষমাণ (Pending)', %s, %s, %s, %s, %s, %s, 'Draft', %s, %s, %s)
-    """, (tracking_id, req.citizen_nid, req.domain, req.department, req.district, req.area, req.description, req.draft_text, init_history, req.evidence_note, datetime.now().strftime("%Y-%m-%d")))
-    conn.commit()
-    cur.close()
-    conn.close()
-    log_audit("Citizen", f"অভিযোগ সংরক্ষণ ({req.domain})", tracking_id)
-    return {"tracking_id": tracking_id}
-
-
-@app.get("/api/complaints")
-def get_complaints():
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM complaints ORDER BY id DESC")
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    return rows
-
-
-class StatusUpdateReq(BaseModel):
-    status: str
-    external_ref: str = None
-
-
-@app.patch("/api/complaints/{tracking_id}/status")
-def update_complaint_status(tracking_id: str, req: StatusUpdateReq):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT status_history, external_ref FROM complaints WHERE tracking_id = %s", (tracking_id,))
-    row = cur.fetchone()
-    if not row:
-        cur.close()
-        conn.close()
-        raise HTTPException(status_code=404, detail="অভিযোগ খুঁজে পাওয়া যায়নি")
-
-    try:
-        history = json.loads(row["status_history"] or "[]")
-    except Exception:
-        history = []
-
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-    history.append({"stage": req.status, "time": now_str, "note": f"অবস্থা '{req.status}'-এ পরিবর্তন করা হয়েছে"})
-    new_ref = req.external_ref if req.external_ref else row["external_ref"]
-
-    cur.execute(
-        "UPDATE complaints SET status = %s, external_ref = %s, status_history = %s WHERE tracking_id = %s",
-        (req.status, new_ref, json.dumps(history, ensure_ascii=False), tracking_id)
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
-    log_audit("User/Admin", f"অভিযোগের স্ট্যাটাস আপডেট -> {req.status}", tracking_id)
-    return {"success": True}
-
-
-@app.get("/api/boq/rates")
-def get_boq_rates():
-    return SCHEDULE_RATES
-
-
-class BoqItem(BaseModel):
-    item_code: str
-    quantity: float
-    quoted_unit_rate: float
-
-
-class BoqAuditReq(BaseModel):
-    project_name: str
-    agency: str = "LGED"
-    allocated_budget: float
-    items: list[BoqItem]
-
-
-@app.post("/api/boq/audit")
-def audit_boq(req: BoqAuditReq):
-    agency_key = "pwd" if req.agency.upper() == "PWD" else "lged"
-    total_bench, total_quoted, anomalies = 0.0, 0.0, 0
-    line_results = []
-
-    for item in req.items:
-        sched = SCHEDULE_RATES.get(item.item_code)
-        if not sched:
-            continue
-        std = sched[agency_key]
-        b_tot, q_tot = std * item.quantity, item.quoted_unit_rate * item.quantity
-        var_pct = round(((item.quoted_unit_rate - std) / std) * 100, 2)
-        if var_pct > 20:
-            anomalies += 1
-        total_bench += b_tot
-        total_quoted += q_tot
-        line_results.append({
-            "name": sched["name"], "unit": sched["unit"], "quantity": item.quantity,
-            "standard_rate": std, "quoted_rate": item.quoted_unit_rate, "benchmark_total": b_tot,
-            "quoted_total": q_tot, "rate_variance_pct": var_pct,
-            "flag": "অতিরিক্ত ব্যয় (>২০%)" if var_pct > 20 else "স্বাভাবিক (NORMAL)"
+    async function realSaveComplaint() {
+      const res = await fetch('/api/complaints', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          citizen_nid: currentUser ? currentUser.nid_masked : "যাচাইকৃত",
+          domain: document.getElementById('resDomain').textContent,
+          department: document.getElementById('resDept').textContent,
+          district: document.getElementById('compDistrict').value,
+          area: document.getElementById('compArea').value || "নির্ধারিত এলাকা",
+          description: document.getElementById('aiPrompt').value,
+          draft_text: document.getElementById('resDraft').value,
+          evidence_note: document.getElementById('evidenceNote').value || "কোনো ফাইল সংযুক্ত নেই"
         })
-
-    budget_var_pct = round(((total_quoted - req.allocated_budget) / req.allocated_budget) * 100, 2) if req.allocated_budget > 0 else 0
-    sched_var_pct = round(((total_quoted - total_bench) / total_bench) * 100, 2) if total_bench > 0 else 0
-
-    return {
-        "project_name": req.project_name, "agency": req.agency.upper(),
-        "matrix": {
-            "allocated_budget": req.allocated_budget,
-            "benchmark_schedule_cost": round(total_bench, 2),
-            "contractor_quoted_cost": round(total_quoted, 2),
-            "budget_variance_pct": budget_var_pct,
-            "schedule_variance_pct": sched_var_pct
-        },
-        "overall_alert": anomalies > 0, "anomaly_count": anomalies, "items": line_results
+      });
+      const data = await res.json();
+      showToast(`অভিযোগ সংরক্ষিত হয়েছে! ট্র্যাকিং আইডি: ${data.tracking_id}`);
+      switchTab('complaints');
     }
 
+    // COMPLAINT TRACKER & DETAILS
+    async function loadComplaints() {
+      const res = await fetch('/api/complaints');
+      allComplaintsData = await res.json();
+      const stages = ["Draft", "Submitted", "In Progress", "Resolved"];
 
-class HazardReq(BaseModel):
-    title: str
-    category: str
-    lat: float
-    lng: float
-    force_create: bool = False
+      const homeBox = document.getElementById('homeRecentComplaints');
+      if (homeBox) {
+        if (allComplaintsData.length === 0) {
+          homeBox.innerHTML = `<p class="text-xs text-slate-500 py-4">কোনো অভিযোগ এখনো সংরক্ষণ করা হয়নি।</p>`;
+        } else {
+          homeBox.innerHTML = allComplaintsData.slice(0, 3).map(c => `
+            <div class="p-3.5 bg-slate-50 border rounded-2xl flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <span class="text-[11px] font-mono font-bold text-emerald-800">${c.tracking_id}</span>
+                <p class="font-bold text-xs sm:text-sm text-slate-900 truncate">${c.domain}</p>
+                <p class="text-[11px] text-slate-500">${c.district || 'ঢাকা'} • ${c.created_at}</p>
+              </div>
+              <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-900 shrink-0">${c.status}</span>
+            </div>
+          `).join('');
+        }
+      }
 
+      if (allComplaintsData.length === 0) {
+        document.getElementById('complaintsEmptyState').classList.remove('hidden');
+        document.getElementById('complaintsTableWrapper').classList.add('hidden');
+        return;
+      }
 
-@app.post("/api/hazards")
-def post_hazard(req: HazardReq):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM hazards")
-    existing = cur.fetchall()
+      document.getElementById('complaintsEmptyState').classList.add('hidden');
+      document.getElementById('complaintsTableWrapper').classList.remove('hidden');
 
-    if not req.force_create:
-        for h in existing:
-            dist = haversine_meters(req.lat, req.lng, h["lat"], h["lng"])
-            if dist <= 100.0:
-                cur.close()
-                conn.close()
-                return {
-                    "duplicate_detected": True,
-                    "distance_meters": round(dist, 1),
-                    "existing_hazard": dict(h)
-                }
-
-    cur.execute(
-        "INSERT INTO hazards (title, category, lat, lng, upvotes, status, created_at) VALUES (%s, %s, %s, %s, %s, 'Open', %s)",
-        (req.title, req.category, req.lat, req.lng, 1, datetime.now().strftime("%Y-%m-%d"))
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
-    log_audit("Citizen", f"ম্যাপে সমস্যা পিন: {req.title}", "HAZ-NEW")
-    return {"duplicate_detected": False}
-
-
-@app.post("/api/hazards/{hazard_id}/upvote")
-def upvote_hazard(hazard_id: int):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("UPDATE hazards SET upvotes = upvotes + 1 WHERE id = %s", (hazard_id,))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return {"success": True}
-
-
-@app.get("/api/hazards")
-def get_hazards():
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM hazards ORDER BY upvotes DESC")
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    return rows
-
-
-@app.get("/api/services")
-def get_services():
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM govt_services ORDER BY id ASC")
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    return rows
-
-
-@app.get("/api/admin/analytics")
-def admin_analytics():
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT domain, status, district FROM complaints")
-    complaints = cur.fetchall()
-    cur.execute("SELECT category, upvotes, status FROM hazards")
-    hazards = cur.fetchall()
-    cur.execute("SELECT id, full_name, email, nid_number, dob, role, is_verified, created_at FROM users ORDER BY id DESC")
-    users = cur.fetchall()
-    cur.execute("SELECT * FROM audit_logs ORDER BY id DESC LIMIT 25")
-    logs = cur.fetchall()
-    cur.close()
-    conn.close()
-
-    status_counts = {"Draft": 0, "Submitted": 0, "In Progress": 0, "Resolved": 0}
-    domain_counts = {}
-    area_counts = {}
-
-    for c in complaints:
-        st = c["status"]
-        status_counts[st] = status_counts.get(st, 0) + 1
-        dom = c["domain"] or "অন্যান্য"
-        domain_counts[dom] = domain_counts.get(dom, 0) + 1
-        dist = c["district"] or "ঢাকা"
-        area_counts[dist] = area_counts.get(dist, 0) + 1
-
-    masked_users = []
-    for u in users:
-        ud = dict(u)
-        nid = ud["nid_number"] or ""
-        ud["nid_masked"] = f"****-****-{nid[-4:]}" if len(nid) >= 4 else nid
-        masked_users.append(ud)
-
-    return {
-        "total_complaints": len(complaints),
-        "pending_complaints": status_counts.get("Draft", 0) + status_counts.get("Submitted", 0),
-        "inprogress_complaints": status_counts.get("In Progress", 0),
-        "resolved_complaints": status_counts.get("Resolved", 0),
-        "total_hazards": len(hazards),
-        "total_users": len(users),
-        "users": masked_users,
-        "status_counts": status_counts,
-        "domain_counts": domain_counts,
-        "area_counts": area_counts,
-        "audit_logs": [dict(l) for l in logs]
+      document.getElementById('complaintsTableBody').innerHTML = allComplaintsData.map((c, idx) => `
+        <tr class="hover:bg-slate-50">
+          <td class="p-3.5 sm:p-4 font-mono font-extrabold text-emerald-900 whitespace-nowrap">${c.tracking_id}</td>
+          <td class="p-3.5 sm:p-4 text-xs text-slate-600 whitespace-nowrap">${c.created_at}</td>
+          <td class="p-3.5 sm:p-4"><div class="font-bold text-slate-900">${c.domain}</div><div class="text-xs text-slate-500">${c.department}</div></td>
+          <td class="p-3.5 sm:p-4 text-xs text-slate-700">${c.district || 'ঢাকা'} ${c.area ? '(' + c.area + ')' : ''}</td>
+          <td class="p-3.5 sm:p-4 whitespace-nowrap"><span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900">${c.status}</span></td>
+          <td class="p-3.5 sm:p-4">
+            <select onchange="updateStage('${c.tracking_id}', this.value)" class="border rounded-xl px-2.5 py-1.5 text-xs bg-white font-semibold">
+              ${stages.map(s => `<option value="${s}" ${s === c.status ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td class="p-3.5 sm:p-4 whitespace-nowrap">
+            <button onclick="openComplaintDetail(${idx})" class="text-xs bg-slate-900 text-white px-3 py-1.5 rounded-xl font-bold hover:bg-slate-700">
+              বিস্তারিত ও ইতিহাস
+            </button>
+          </td>
+        </tr>
+      `).join('');
     }
+
+    function openComplaintDetail(idx) {
+      const c = allComplaintsData[idx];
+      if (!c) return;
+      document.getElementById('detTrackingId').textContent = c.tracking_id;
+      document.getElementById('detDomain').textContent = c.domain;
+      document.getElementById('detDeptLoc').textContent = `${c.department} • ${c.district || 'ঢাকা'}, ${c.area || ''}`;
+      document.getElementById('detDraftText').textContent = c.draft_text;
+
+      let history = [];
+      try {
+        history = JSON.parse(c.status_history || "[]");
+      } catch (e) {}
+
+      if (history.length === 0) {
+        history = [{ stage: c.status, time: c.created_at, note: "অভিযোগ রেকর্ড করা হয়েছে" }];
+      }
+
+      document.getElementById('detHistoryList').innerHTML = history.map(h => `
+        <div class="text-xs">
+          <span class="font-bold text-emerald-900">${h.stage}</span> <span class="text-slate-400">(${h.time})</span>
+          <p class="text-slate-600">${h.note}</p>
+        </div>
+      `).join('');
+
+      document.getElementById('complaintDetailModal').classList.remove('hidden');
+    }
+
+    async function updateStage(trackingId, newStatus) {
+      await fetch(`/api/complaints/${trackingId}/status`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      showToast(`${trackingId}-এর অবস্থা '${newStatus}' করা হয়েছে`);
+      loadComplaints();
+    }
+
+    // MAP & MINI MAP
+    function initMiniMap() {
+      if (!miniMapInstance) {
+        miniMapInstance = L.map('miniMap').setView([23.8103, 90.4125], 11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(miniMapInstance);
+      }
+      setTimeout(() => miniMapInstance.invalidateSize(), 200);
+      fetch('/api/hazards').then(r => r.json()).then(list => {
+        list.forEach(h => {
+          L.marker([h.lat, h.lng]).addTo(miniMapInstance).bindPopup(`<b>${h.title}</b>`);
+        });
+      });
+    }
+
+    function initMap() {
+      if (!mapInstance) {
+        mapInstance = L.map('map').setView([23.8103, 90.4125], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
+        mapInstance.on('click', e => {
+          document.getElementById('hazLat').value = e.latlng.lat.toFixed(6);
+          document.getElementById('hazLng').value = e.latlng.lng.toFixed(6);
+        });
+      }
+      setTimeout(() => mapInstance.invalidateSize(), 200);
+      loadHazards();
+    }
+
+    async function loadHazards() {
+      const res = await fetch('/api/hazards');
+      allHazardsData = await res.json();
+      filterAndRenderHazards();
+    }
+
+    function filterAndRenderHazards() {
+      const catFilter = document.getElementById('mapFilterCat').value;
+      const statusFilter = document.getElementById('mapFilterStatus').value;
+
+      const filtered = allHazardsData.filter(h => {
+        const matchCat = catFilter === "ALL" || h.category === catFilter;
+        const matchStat = statusFilter === "ALL" || h.status === statusFilter;
+        return matchCat && matchStat;
+      });
+
+      mapLayers.forEach(m => mapInstance.removeLayer(m));
+      mapLayers = [];
+
+      const colorMap = {
+        "ক্ষতিগ্রস্ত রাস্তা": "#dc2626",
+        "বর্জ্য ব্যবস্থাপনা": "#d97706",
+        "জলাবদ্ধতা": "#2563eb",
+        "নষ্ট সড়কবাতি": "#7c3aed"
+      };
+
+      document.getElementById('hazardListContainer').innerHTML = filtered.map(h => {
+        const col = colorMap[h.category] || "#059669";
+        const marker = L.circleMarker([h.lat, h.lng], { radius: 9, color: col, fillColor: col, fillOpacity: 0.85 }).addTo(mapInstance)
+          .bindPopup(`<b>${h.title}</b><br>ক্যাটাগরি: ${h.category}<br>অবস্থা: ${h.status}<br>সমর্থন: ${h.upvotes}`);
+        const circle = L.circle([h.lat, h.lng], { radius: 100, color: col, fillOpacity: 0.1, weight: 1 }).addTo(mapInstance);
+        mapLayers.push(marker, circle);
+
+        return `
+          <div class="p-3 bg-white border rounded-2xl flex items-center justify-between text-xs shadow-sm">
+            <div class="min-w-0 pr-2">
+              <p class="font-bold text-slate-900 truncate">${h.title}</p>
+              <span class="text-[10px] text-slate-500">${h.category} • ${h.status}</span>
+            </div>
+            <button onclick="upvoteHazard(${h.id})" class="bg-emerald-50 text-emerald-900 font-bold px-3 py-1.5 rounded-xl shrink-0">▲ ${h.upvotes}</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function realPinHazard(forceCreate) {
+      const res = await fetch('/api/hazards', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: document.getElementById('hazTitle').value.trim() || "নাগরিক সমস্যা",
+          category: document.getElementById('hazCat').value,
+          lat: parseFloat(document.getElementById('hazLat').value),
+          lng: parseFloat(document.getElementById('hazLng').value),
+          force_create: forceCreate
+        })
+      });
+      const data = await res.json();
+      if (data.duplicate_detected) {
+        document.getElementById('dupDetails').textContent = `"${data.existing_hazard.title}" ইতিমধ্যে ${data.distance_meters} মিটার দূরে পিন করা আছে।`;
+        document.getElementById('dupUpvoteBtn').onclick = () => { upvoteHazard(data.existing_hazard.id); document.getElementById('dupWarningBox').classList.add('hidden'); };
+        document.getElementById('dupWarningBox').classList.remove('hidden');
+      } else {
+        document.getElementById('dupWarningBox').classList.add('hidden');
+        showToast("সমস্যাটি সফলভাবে ম্যাপে পিন করা হয়েছে!");
+        loadHazards();
+      }
+    }
+
+    async function upvoteHazard(id) {
+      await fetch(`/api/hazards/${id}/upvote`, { method: 'POST' });
+      showToast("সমস্যাটির গুরুত্ব বাড়াতে সমর্থন (Upvote) যুক্ত হয়েছে!");
+      loadHazards();
+    }
+
+    // DOCUMENT ASSISTANT (REAL PDF EXTRACTION)
+    async function processUploadedPdf(input) {
+      const file = input.files[0];
+      if (!file) return;
+      document.getElementById('pdfStatusText').textContent = "PDF ফাইল পড়া হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...";
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = "";
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => item.str).join(" ");
+          fullText += `\n[পৃষ্ঠা ${i}]: ${pageText}`;
+        }
+        extractedPdfText = fullText.trim();
+        document.getElementById('pdfStatusText').textContent = `✓ সফলভাবে লোড হয়েছে: "${file.name}" (মোট পৃষ্ঠা: ${pdf.numPages})। এখন নিচে প্রশ্ন করুন।`;
+        showToast("PDF ডকুমেন্ট প্রসেস সম্পন্ন হয়েছে!");
+      } catch (e) {
+        extractedPdfText = "";
+        document.getElementById('pdfStatusText').textContent = "PDF ফাইলটি পড়া সম্ভব হয়নি।";
+        showToast("PDF পড়তে সমস্যা হয়েছে।", "error");
+      }
+    }
+
+    function askPdfDocument() {
+      const q = document.getElementById('pdfQuestionInput').value.trim();
+      const box = document.getElementById('pdfAnswerBox');
+      const ansText = document.getElementById('pdfAnswerText');
+
+      if (!extractedPdfText) {
+        showToast("আগে একটি PDF ফাইল আপলোড করুন। অনুমান করে কোনো উত্তর দেওয়া হয় না।", "warn");
+        return;
+      }
+      if (!q) {
+        showToast("অনুগ্রহ করে আপনার প্রশ্ন বা শব্দ লিখুন।", "warn");
+        return;
+      }
+
+      const keywords = q.split(/\s+/).filter(w => w.length > 2);
+      const sentences = extractedPdfText.split(/[.।\n]+/);
+      const matches = sentences.filter(s => keywords.some(k => s.toLowerCase().includes(k.toLowerCase())));
+
+      box.classList.remove('hidden');
+      if (matches.length > 0) {
+        ansText.innerHTML = `<strong>আপলোডকৃত ডকুমেন্ট থেকে প্রাপ্ত প্রাসঙ্গিক অংশ:</strong><br><br>"${matches.slice(0, 3).join('। ')}।"`;
+      } else {
+        ansText.textContent = "আপলোডকৃত PDF ডকুমেন্টে আপনার প্রশ্নের সাথে সরাসরি মিলে এমন কোনো তথ্য খুঁজে পাওয়া যায়নি।";
+      }
+    }
+
+    // BOQ AUDIT
+    function loadBoqPreset(type) {
+      const container = document.getElementById('boqRowsContainer');
+      if (!container) return;
+      container.innerHTML = "";
+      if (type === 'road') {
+        addBoqRow("bituminous_carpeting_sqm", 1500, 1250);
+        addBoqRow("brick_flat_soling_sqm", 800, 700);
+      } else {
+        addBoqRow("rcc_concrete_cum", 65, 11800);
+        addBoqRow("ms_rebar_kg", 6000, 128);
+      }
+    }
+
+    function addBoqRow(defaultCode = "earthwork_cum", defaultQty = 500, defaultRate = 330) {
+      const container = document.getElementById('boqRowsContainer');
+      if (!container) return;
+      const options = Object.entries(scheduleRates).map(([code, info]) =>
+        `<option value="${code}" ${code === defaultCode ? 'selected' : ''}>${info.name} [LGED: ৳${info.lged} | PWD: ৳${info.pwd}]</option>`
+      ).join('');
+      const row = document.createElement('div');
+      row.className = "boq-row grid grid-cols-1 md:grid-cols-12 gap-2.5 items-center bg-slate-50 p-3.5 rounded-2xl border";
+      row.innerHTML = `
+        <select class="boq-code md:col-span-6 rounded-xl border p-2.5 text-xs bg-white">${options}</select>
+        <input type="number" class="boq-qty md:col-span-2 rounded-xl border p-2.5 text-xs bg-white font-mono" value="${defaultQty}" />
+        <input type="number" class="boq-rate md:col-span-3 rounded-xl border p-2.5 text-xs bg-white font-mono" value="${defaultRate}" />
+        <button onclick="this.parentElement.remove()" class="md:col-span-1 text-red-600 font-bold text-xs hover:bg-red-50 p-2 rounded-lg">✕</button>
+      `;
+      container.appendChild(row);
+    }
+
+    async function runBoqAudit() {
+      const items = [];
+      document.querySelectorAll('.boq-row').forEach(r => {
+        items.push({
+          item_code: r.querySelector('.boq-code').value,
+          quantity: parseFloat(r.querySelector('.boq-qty').value) || 0,
+          quoted_unit_rate: parseFloat(r.querySelector('.boq-rate').value) || 0
+        });
+      });
+      const res = await fetch('/api/boq/audit', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_name: document.getElementById('boqProjectName').value,
+          agency: document.getElementById('boqAgency').value,
+          allocated_budget: parseFloat(document.getElementById('boqBudget').value) || 0,
+          items
+        })
+      });
+      const data = await res.json();
+      const banner = document.getElementById('boqAlertBanner');
+      banner.className = data.overall_alert ? "p-4 rounded-xl border border-red-300 bg-red-50 text-red-900 font-bold text-xs sm:text-sm" : "p-4 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-900 font-bold text-xs sm:text-sm";
+      banner.textContent = data.overall_alert ? `🚨 সতর্কতা: ${data.anomaly_count}টি আইটেমের দর সরকারি শিডিউলের চেয়ে ২০% এর বেশি ধরা হয়েছে!` : `✅ প্রস্তাবিত দর সরকারি শিডিউল সীমার মধ্যে রয়েছে।`;
+
+      document.getElementById('mAllocated').textContent = `৳${data.matrix.allocated_budget.toLocaleString()}`;
+      document.getElementById('mBenchmark').textContent = `৳${data.matrix.benchmark_schedule_cost.toLocaleString()}`;
+      document.getElementById('mQuoted').textContent = `৳${data.matrix.contractor_quoted_cost.toLocaleString()}`;
+      document.getElementById('mBudgetVar').textContent = `${data.matrix.budget_variance_pct}%`;
+      document.getElementById('mSchedVar').textContent = `${data.matrix.schedule_variance_pct}%`;
+
+      document.getElementById('boqAuditTable').innerHTML = data.items.map(i => `
+        <tr>
+          <td class="p-3.5 sm:p-4 font-semibold">${i.name}</td><td class="p-3.5 sm:p-4">${i.quantity} ${i.unit}</td>
+          <td class="p-3.5 sm:p-4">৳${i.standard_rate}</td><td class="p-3.5 sm:p-4 font-bold">৳${i.quoted_rate}</td>
+          <td class="p-3.5 sm:p-4 font-extrabold ${i.rate_variance_pct > 20 ? 'text-red-600' : 'text-emerald-700'}">${i.rate_variance_pct}%</td>
+          <td class="p-3.5 sm:p-4"><span class="px-2.5 py-1 rounded-full text-xs font-bold ${i.flag.includes('অতিরিক্ত') ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}">${i.flag}</span></td>
+        </tr>
+      `).join('');
+      document.getElementById('boqResultPanel').classList.remove('hidden');
+    }
+
+    // CONSUMER REWARD
+    function calculateConsumerReward() {
+      const mrp = parseFloat(document.getElementById('calcMrp').value) || 0;
+      const charged = parseFloat(document.getElementById('calcCharged').value) || 0;
+      const fine = parseFloat(document.getElementById('calcFine').value) || 0;
+      const overcharge = Math.max(0, charged - mrp);
+      document.getElementById('resOvercharge').textContent = `৳${overcharge.toLocaleString()}`;
+      document.getElementById('resOverchargePct').textContent = `${mrp > 0 ? ((overcharge / mrp) * 100).toFixed(1) : 0}%`;
+      document.getElementById('resReward').textContent = `৳${(fine * 0.25).toLocaleString()}`;
+    }
+
+    // DIRECTORY
+    async function loadAutoSyncedDirectory() {
+      const res = await fetch('/api/services');
+      const services = await res.json();
+      document.getElementById('directoryGrid').innerHTML = services.map(s => `
+        <div class="p-4 sm:p-6 border rounded-2xl sm:rounded-3xl bg-slate-50 flex flex-col justify-between space-y-4 shadow-sm hover:border-emerald-500 transition">
+          <div>
+            <div class="flex justify-between items-start gap-2">
+              <h3 class="font-extrabold text-slate-900 text-sm sm:text-base">${s.service_name}</h3>
+              <span class="text-[10px] sm:text-[11px] bg-emerald-100 text-emerald-900 font-bold px-2.5 py-1 rounded-full shrink-0">${s.fee}</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">${s.ministry} • সেবা সময়সীমা: <strong>${s.sla_timeline}</strong></p>
+          </div>
+          <a href="${s.portal_url}" target="_blank" class="text-xs font-bold text-emerald-800 hover:underline inline-block mt-2">অফিশিয়াল পোর্টালে প্রবেশ করুন ↗</a>
+        </div>
+      `).join('');
+    }
+
+    // ADMIN ANALYTICS & CHARTS
+    async function loadAdminAnalytics() {
+      const res = await fetch('/api/admin/analytics');
+      const data = await res.json();
+
+      document.getElementById('kpiTotalComplaints').textContent = data.total_complaints;
+      document.getElementById('kpiPending').textContent = data.pending_complaints;
+      document.getElementById('kpiInProgress').textContent = data.inprogress_complaints;
+      document.getElementById('kpiResolved').textContent = data.resolved_complaints;
+
+      document.getElementById('admComplaints').textContent = data.total_complaints;
+      document.getElementById('admResolved').textContent = data.resolved_complaints;
+      document.getElementById('admUsers').textContent = data.total_users;
+      document.getElementById('admHazards').textContent = data.total_hazards;
+
+      document.getElementById('auditLogBody').innerHTML = data.audit_logs.map(l => `
+        <tr><td class="p-3.5 font-mono">#${l.id}</td><td class="p-3.5 font-bold">${l.actor_role}</td><td class="p-3.5">${l.action}</td><td class="p-3.5 text-slate-500">${l.timestamp}</td></tr>
+      `).join('');
+
+      renderAnalyticsCharts(data);
+    }
+
+    function renderAnalyticsCharts(data) {
+      const catLabels = Object.keys(data.domain_counts).length ? Object.keys(data.domain_counts) : ["ক্ষতিগ্রস্ত রাস্তা (ডেমো)", "জলাবদ্ধতা (ডেমো)", "ভোক্তা অধিকার (ডেমো)"];
+      const catVals = Object.keys(data.domain_counts).length ? Object.values(data.domain_counts) : [4, 2, 3];
+
+      const statLabels = Object.keys(data.status_counts);
+      const statVals = Object.values(data.status_counts);
+
+      const areaLabels = Object.keys(data.area_counts).length ? Object.keys(data.area_counts) : ["ঢাকা (ডেমো)", "চট্টগ্রাম (ডেমো)", "সিলেট (ডেমো)"];
+      const areaVals = Object.keys(data.area_counts).length ? Object.values(data.area_counts) : [5, 2, 2];
+
+      ['chartCategories', 'chartStatus', 'chartArea'].forEach(id => {
+        if (chartInstances[id]) chartInstances[id].destroy();
+      });
+
+      chartInstances['chartCategories'] = new Chart(document.getElementById('chartCategories'), {
+        type: 'doughnut',
+        data: { labels: catLabels, datasets: [{ data: catVals, backgroundColor: ['#065f46', '#dc2626', '#d97706', '#2563eb', '#7c3aed'] }] }
+      });
+
+      chartInstances['chartStatus'] = new Chart(document.getElementById('chartStatus'), {
+        type: 'bar',
+        data: { labels: statLabels, datasets: [{ label: 'সংখ্যা', data: statVals, backgroundColor: '#047857' }] }
+      });
+
+      chartInstances['chartArea'] = new Chart(document.getElementById('chartArea'), {
+        type: 'bar',
+        data: { labels: areaLabels, datasets: [{ label: 'রিপোর্ট সংখ্যা', data: areaVals, backgroundColor: '#b91c1c' }] }
+      });
+    }
+
+    window.onload = async () => {
+      const res = await fetch('/api/boq/rates');
+      scheduleRates = await res.json();
+      loadBoqPreset('road');
+      loadAutoSyncedDirectory();
+      loadAdminAnalytics();
+      loadComplaints();
+      initMiniMap();
+      calculateConsumerReward();
+    };
+  </script>
+</body>
+</html>
