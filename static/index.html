@@ -30,7 +30,6 @@
     @media (min-width: 768px) {
       #miniMap { height: 240px; }
     }
-    /* Mobile touch & scroll polish */
     button, select, input, textarea {
       touch-action: manipulation;
     }
@@ -292,33 +291,57 @@
     <!-- MAIN WORKSPACE -->
     <main class="flex-1 p-3.5 sm:p-6 md:p-8 max-w-7xl mx-auto w-full space-y-5 sm:space-y-6">
 
-      <!-- MOBILE QUICK MENU BAR & SELECTOR -->
-      <div class="lg:hidden bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-extrabold text-emerald-900">📱 মেনু নির্বাচন করুন (সেকশন পরিবর্তন)</span>
-          <button onclick="openAdminModal()" class="text-[11px] text-amber-700 font-bold underline">অ্যাডমিন</button>
-        </div>
-        <select id="mobileNavSelect" onchange="switchTab(this.value)" class="w-full p-3 rounded-xl border border-emerald-700/40 bg-emerald-50/50 font-bold text-sm text-slate-900 focus:outline-none">
-          <option value="overview">🏠 হোম ড্যাশবোর্ড</option>
-          <option value="chat">💬 বাংলা এআই সহায়ক (চ্যাট)</option>
-          <option value="assistant">✍️ এআই অভিযোগ জেনারেটর</option>
-          <option value="complaints">📋 অভিযোগ ট্র্যাকার</option>
-          <option value="map">🗺️ স্মার্ট সমস্যা মানচিত্র</option>
-          <option value="docassistant">📄 ডকুমেন্ট সহায়ক (PDF)</option>
-          <option value="boq">💰 প্রকল্প ব্যয় অডিট (BOQ)</option>
-          <option value="consumer">🏷️ ভোক্তা অধিকার (১৬১২১)</option>
-          <option value="anticorruption">🛡️ দুর্নীতি প্রতিরোধ (১০৬)</option>
-          <option value="directory">🌐 সরকারি সেবা নির্দেশিকা</option>
-          <option value="admin" id="mobileAdminOpt" class="hidden">📊 অ্যাডমিন অ্যানালিটিক্স</option>
-        </select>
+      <!-- MOBILE TOP DASHBOARD MENU BAR (CLICK TO OPEN / ENTER ANY SECTION) -->
+      <div class="lg:hidden bg-emerald-950 text-white rounded-2xl shadow-md border border-emerald-800 overflow-hidden">
+        <button onclick="toggleMobileDashboardDrawer()" class="w-full px-4 py-3.5 flex items-center justify-between text-left font-bold text-sm">
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-lg bg-emerald-700 border border-red-500 flex items-center justify-center font-extrabold text-sm">☰</span>
+            <div>
+              <p class="text-sm font-extrabold leading-none">নাগরিকবন্ধু ড্যাশবোর্ড মেনু</p>
+              <p id="mobileActivePageLabel" class="text-[11px] text-emerald-300 mt-1">বর্তমান পেজ: হোম ড্যাশবোর্ড • ক্লিক করে মেনু খুলুন</p>
+            </div>
+          </div>
+          <span id="mobileDrawerArrow" class="text-emerald-300 text-xs font-bold">▼ খুলুন</span>
+        </button>
 
-        <!-- Quick horizontal pills for effortless mobile tapping -->
-        <div class="flex gap-2 overflow-x-auto pb-1 pt-0.5 text-xs font-bold no-scrollbar">
-          <button onclick="switchTab('overview')" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-800 whitespace-nowrap">🏠 ড্যাশবোর্ড</button>
-          <button onclick="switchTab('assistant')" class="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-900 whitespace-nowrap">✍️ অভিযোগ লিখুন</button>
-          <button onclick="switchTab('complaints')" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-800 whitespace-nowrap">📋 ট্র্যাকার</button>
-          <button onclick="switchTab('chat')" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-800 whitespace-nowrap">💬 এআই চ্যাট</button>
-          <button onclick="switchTab('map')" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-800 whitespace-nowrap">🗺️ ম্যাপ</button>
+        <div id="mobileDashboardDrawer" class="hidden bg-slate-900 border-t border-emerald-800/70 p-2.5 space-y-1 text-sm font-semibold">
+          <button onclick="mobileSelectTab('overview', 'হোম ড্যাশবোর্ড')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>🏠</span> <span>হোম ড্যাশবোর্ড</span>
+          </button>
+          <button onclick="mobileSelectTab('chat', 'বাংলা এআই সহায়ক (চ্যাট)')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>💬</span> <span>বাংলা এআই সহায়ক (চ্যাট)</span>
+          </button>
+          <button onclick="mobileSelectTab('assistant', 'এআই অভিযোগ জেনারেটর')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>✍️</span> <span>এআই অভিযোগ জেনারেটর</span>
+          </button>
+          <button onclick="mobileSelectTab('complaints', 'অভিযোগ ট্র্যাকার')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>📋</span> <span>অভিযোগ ট্র্যাকার</span>
+          </button>
+          <button onclick="mobileSelectTab('map', 'স্মার্ট সমস্যা মানচিত্র')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>🗺️</span> <span>স্মার্ট সমস্যা মানচিত্র</span>
+          </button>
+          <button onclick="mobileSelectTab('docassistant', 'ডকুমেন্ট সহায়ক (PDF)')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>📄</span> <span>ডকুমেন্ট সহায়ক (PDF)</span>
+          </button>
+          <button onclick="mobileSelectTab('boq', 'প্রকল্প ব্যয় অডিট (BOQ)')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>💰</span> <span>প্রকল্প ব্যয় অডিট (BOQ)</span>
+          </button>
+          <button onclick="mobileSelectTab('consumer', 'ভোক্তা অধিকার (১৬১২১)')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>🏷️</span> <span>ভোক্তা অধিকার (১৬১২১)</span>
+          </button>
+          <button onclick="mobileSelectTab('anticorruption', 'দুর্নীতি প্রতিরোধ (১০৬)')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>🛡️</span> <span>দুর্নীতি প্রতিরোধ (১০৬)</span>
+          </button>
+          <button onclick="mobileSelectTab('directory', 'সরকারি সেবা নির্দেশিকা')" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-slate-200 flex items-center gap-2.5">
+            <span>🌐</span> <span>সরকারি সেবা নির্দেশিকা</span>
+          </button>
+          <button id="mobileAdminDrawerBtn" onclick="mobileSelectTab('admin', 'অ্যাডমিন অ্যানালিটিক্স')" class="hidden w-full text-left px-3.5 py-2.5 rounded-xl bg-amber-500/15 text-amber-300 font-bold flex items-center gap-2.5">
+            <span>📊</span> <span>অ্যাডমিন অ্যানালিটিক্স</span>
+          </button>
+          <div class="pt-2 mt-1 border-t border-slate-800 flex items-center justify-between px-3.5 py-1.5 text-xs text-slate-400">
+            <span>জরুরি: ৯৯৯ • ১০৬ • ১৬১২১</span>
+            <button onclick="toggleMobileDashboardDrawer(); openAdminModal();" class="text-amber-400 font-bold underline">অ্যাডমিন লগইন</button>
+          </div>
         </div>
       </div>
 
@@ -342,7 +365,7 @@
           </div>
         </div>
 
-        <!-- KPI CARDS (Mobile-friendly 2x2 grid) -->
+        <!-- KPI CARDS -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div class="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm">
             <span class="text-[11px] sm:text-xs font-bold text-slate-500 block">মোট অভিযোগ</span>
@@ -824,15 +847,35 @@
       setTimeout(() => toast.remove(), 3500);
     }
 
+    function toggleMobileDashboardDrawer() {
+      const drawer = document.getElementById('mobileDashboardDrawer');
+      const arrow = document.getElementById('mobileDrawerArrow');
+      if (!drawer) return;
+      drawer.classList.toggle('hidden');
+      if (arrow) {
+        arrow.textContent = drawer.classList.contains('hidden') ? '▼ খুলুন' : '▲ বন্ধ করুন';
+      }
+    }
+
+    function mobileSelectTab(tabId, label) {
+      const drawer = document.getElementById('mobileDashboardDrawer');
+      const arrow = document.getElementById('mobileDrawerArrow');
+      const activeLabel = document.getElementById('mobileActivePageLabel');
+      if (drawer) drawer.classList.add('hidden');
+      if (arrow) arrow.textContent = '▼ খুলুন';
+      if (activeLabel && label) activeLabel.textContent = `বর্তমান পেজ: ${label}`;
+      switchTab(tabId);
+    }
+
     function applyAdminVisibility(isAdmin) {
       const sideBtn = document.getElementById('sidebarAdminBtn');
-      const mobOpt = document.getElementById('mobileAdminOpt');
+      const mobDrawerBtn = document.getElementById('mobileAdminDrawerBtn');
       if (isAdmin) {
         if (sideBtn) sideBtn.classList.remove('hidden');
-        if (mobOpt) mobOpt.classList.remove('hidden');
+        if (mobDrawerBtn) mobDrawerBtn.classList.remove('hidden');
       } else {
         if (sideBtn) sideBtn.classList.add('hidden');
-        if (mobOpt) mobOpt.classList.add('hidden');
+        if (mobDrawerBtn) mobDrawerBtn.classList.add('hidden');
       }
     }
 
@@ -1017,6 +1060,8 @@
       if (res.ok && data.success && data.user.role === 'Admin') {
         updateAuthUI(data.user);
         document.getElementById('adminLoginModal').classList.add('hidden');
+        const activeLabel = document.getElementById('mobileActivePageLabel');
+        if (activeLabel) activeLabel.textContent = "বর্তমান পেজ: অ্যাডমিন অ্যানালিটিক্স";
         switchTab('admin');
         showToast("অ্যাডমিন অ্যাক্সেস অনুমোদিত হয়েছে।");
       } else {
@@ -1029,9 +1074,6 @@
         openAdminModal();
         return;
       }
-
-      const mobSel = document.getElementById('mobileNavSelect');
-      if (mobSel && mobSel.value !== tabId) mobSel.value = tabId;
 
       document.querySelectorAll('.tab-section').forEach(el => el.classList.add('hidden'));
       document.getElementById('tab-' + tabId).classList.remove('hidden');
