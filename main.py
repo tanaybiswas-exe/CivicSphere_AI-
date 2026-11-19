@@ -1,4 +1,5 @@
 import os
+import re
 import math
 import hashlib
 import random
@@ -6,7 +7,6 @@ import json
 import shutil
 import tempfile
 import urllib.request
-import urllib.error
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse
@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI(title="NagorikBondhu — নাগরিকবন্ধু AI", version="3.1")
+app = FastAPI(title="NagorikBondhu — নাগরিক বন্ধু AI", version="3.1")
 
 # Neon PostgreSQL Database URL
 DATABASE_URL = os.getenv(
@@ -116,6 +116,7 @@ def init_db():
             id SERIAL PRIMARY KEY,
             full_name TEXT,
             email TEXT UNIQUE,
+            phone TEXT,
             password_hash TEXT,
             nid_number TEXT UNIQUE,
             dob TEXT,
@@ -124,6 +125,8 @@ def init_db():
             created_at TEXT
         )
         """)
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT")
+
         cur.execute("""
         CREATE TABLE IF NOT EXISTS complaints (
             id SERIAL PRIMARY KEY,
@@ -182,12 +185,12 @@ def init_db():
         cur.execute("SELECT COUNT(*) as cnt FROM users")
         if cur.fetchone()['cnt'] == 0:
             cur.execute(
-                "INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                ('সিস্টেম অ্যাডমিনিস্ট্রেটর', 'admin@civicsphere.gov.bd', hash_pw('admin123'), '1995547891234', '1995-05-12', 'Admin', 1, '2026-01-01')
+                "INSERT INTO users (full_name, email, phone, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                ('সিস্টেম অ্যাডমিনিস্ট্রেটর', 'admin@civicsphere.gov.bd', '01811000000', hash_pw('admin123'), '1995547891234', '1995-05-12', 'Admin', 1, '2026-01-01')
             )
             cur.execute(
-                "INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                ('তনয় বিশ্বাস বন্ধন', 'tanay@civicsphere.ai', hash_pw('citizen123'), '2000269874512', '2000-04-22', 'Citizen', 1, '2026-01-02')
+                "INSERT INTO users (full_name, email, phone, password_hash, nid_number, dob, role, is_verified, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                ('তনয় বিশ্বাস বন্ধন', 'tanay@gmail.com', '01711000000', hash_pw('citizen123'), '2000269874512', '2000-04-22', 'Citizen', 1, '2026-01-02')
             )
 
         cur.execute("SELECT COUNT(*) as cnt FROM hazards")
@@ -381,15 +384,20 @@ def ask_doc_api(req: DocAskReq):
 
 
 class LoginReq(BaseModel):
-    email: str
+    email: str = ""
+    identifier: str = ""
     password: str
 
 
 @app.post("/api/auth/login")
 def login(req: LoginReq):
+    ident = (req.identifier or req.email or "").strip().lower()
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE email = %s AND password_hash = %s", (req.email.strip().lower(), hash_pw(req.password)))
+    cur.execute(
+        "SELECT * FROM users WHERE (LOWER(email) = %s OR phone = %s) AND password_hash = %s",
+        (ident, ident, hash_pw(req.password))
+    )
     user = cur.fetchone()
     cur.close()
     conn.close()
@@ -401,16 +409,18 @@ def login(req: LoginReq):
                 "id": user["id"],
                 "full_name": user["full_name"],
                 "email": user["email"],
+                "phone": user.get("phone") or "",
                 "role": user["role"],
                 "nid_masked": f"****-****-{user['nid_number'][-4:]}" if user['nid_number'] else "****"
             }
         }
-    raise HTTPException(status_code=401, detail="ভুল ইমেইল অথবা পাসওয়ার্ড দেওয়া হয়েছে।")
+    raise HTTPException(status_code=401, detail="ভুল ইমেইল / মোবাইল নম্বর অথবা পাসওয়ার্ড দেওয়া হয়েছে।")
 
 
 class RegReq(BaseModel):
     full_name: str
     email: str
+    phone: str = ""
     password: str
     nid_number: str
     dob: str
@@ -418,17 +428,24 @@ class RegReq(BaseModel):
 
 @app.post("/api/auth/register")
 def register(req: RegReq):
+    email = req.email.strip().lower()
+    phone = req.phone.strip()
     nid = req.nid_number.strip()
+
+    if not re.match(r"^[a-zA-Z0-9._%+-]+@gmail\.com$", email):
+        raise HTTPException(status_code=400, detail="সঠিক @gmail.com ইমেইল ঠিকানা ব্যবহার করুন।")
+    if phone and not re.match(r"^01[3-9]\d{8}$", phone):
+        raise HTTPException(status_code=400, detail="সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন।")
     if not nid.isdigit() or len(nid) < 10:
         raise HTTPException(status_code=400, detail="সঠিক এনআইডি (NID) নম্বর দিন (কমপক্ষে ১০ ডিজিট)।")
     try:
         conn = get_db()
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO users (full_name, email, password_hash, nid_number, dob, role, is_verified, created_at) 
-            VALUES (%s, %s, %s, %s, %s, 'Citizen', 1, %s)
+            INSERT INTO users (full_name, email, phone, password_hash, nid_number, dob, role, is_verified, created_at) 
+            VALUES (%s, %s, %s, %s, %s, %s, 'Citizen', 1, %s)
             RETURNING id
-        """, (req.full_name.strip(), req.email.strip().lower(), hash_pw(req.password), nid, req.dob.strip(), datetime.now().strftime("%Y-%m-%d")))
+        """, (req.full_name.strip(), email, phone, hash_pw(req.password), nid, req.dob.strip(), datetime.now().strftime("%Y-%m-%d")))
 
         uid = cur.fetchone()['id']
         conn.commit()
@@ -436,7 +453,7 @@ def register(req: RegReq):
         conn.close()
 
         log_audit("Citizen", f"নতুন নাগরিক নিবন্ধন (****{nid[-4:]})", f"USR-{uid}")
-        return {"success": True, "message": "এনআইডি যাচাই সফল! অ্যাকাউন্ট তৈরি হয়েছে, এখন লগইন করুন।"}
+        return {"success": True, "message": "নিবন্ধন সফল হয়েছে! এখন ইমেইল বা মোবাইল নম্বর দিয়ে লগইন করুন।"}
     except Exception as e:
         print("Register Error:", e)
         raise HTTPException(status_code=400, detail="এই ইমেইল বা এনআইডি দিয়ে আগেই অ্যাকাউন্ট খোলা হয়েছে।")
