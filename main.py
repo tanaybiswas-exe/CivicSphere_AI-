@@ -318,7 +318,7 @@ def citizen_chat(req: ChatReq):
 
     ai_reply = call_ai_text(
         f"নাগরিকের প্রশ্ন: {q}\nবাংলাদেশের প্রেক্ষাপটে সহজ বাংলায় সংক্ষিপ্ত ও স্পষ্ট সহায়ক উত্তর দিন। কোনো কাল্পনিক আইন বা সরকারি নীতি বানাবেন না; সন্দেহ হলে অফিশিয়াল পোর্টাল যাচাই করতে বলুন।",
-        system_instruction="আপনি নাগরিকবন্ধু (NagorikBondhu) প্ল্যাটফর্মের বাংলা এআই নাগরিক সহায়ক।"
+        system_instruction="আপনি নাগরিক বন্ধু (NagorikBondhu) প্ল্যাটফর্মের বাংলা এআই নাগরিক সহায়ক।"
     )
 
     if ai_reply:
@@ -336,7 +336,7 @@ def citizen_chat(req: ChatReq):
     elif "কাগজ" in q or "document" in ql:
         demo_answer = "যেকোনো সরকারি সেবার জন্য সাধারণত: (১) জাতীয় পরিচয়পত্র (NID) বা জন্ম নিবন্ধন সনদ, (২) সদ্য তোলা পাসপোর্ট সাইজের ছবি, এবং (৩) নাগরিকত্ব বা ঠিকানার প্রমাণপত্র প্রয়োজন হয়।"
     else:
-        demo_answer = "আপনার প্রশ্নটি নাগরিকবন্ধু ডেমো সহায়ক সিস্টেমে প্রক্রিয়াকরণ করা হয়েছে। সুনির্দিষ্ট সরকারি নীতির জন্য নিচের যাচাইকৃত পোর্টাল দেখুন।"
+        demo_answer = "আপনার প্রশ্নটি নাগরিক বন্ধু ডেমো সহায়ক সিস্টেমে প্রক্রিয়াকরণ করা হয়েছে। সুনির্দিষ্ট সরকারি নীতির জন্য নিচের যাচাইকৃত পোর্টাল দেখুন।"
 
     return {
         "source_type": "ডেমো সহায়ক উত্তর (Demo Guidance)",
@@ -428,24 +428,38 @@ class RegReq(BaseModel):
 
 @app.post("/api/auth/register")
 def register(req: RegReq):
-    email = req.email.strip().lower()
-    phone = req.phone.strip()
-    nid = req.nid_number.strip()
+    full_name = (req.full_name or "").strip()
+    email = (req.email or "").strip().lower()
+    phone = re.sub(r"\D", "", req.phone or "")
+    if phone.startswith("880") and len(phone) == 13:
+        phone = "0" + phone[3:]
+    nid = re.sub(r"\D", "", req.nid_number or "")
+    dob = (req.dob or "2000-01-01").strip() or "2000-01-01"
 
+    if not full_name:
+        raise HTTPException(status_code=400, detail="আপনার পূর্ণ নাম লিখুন।")
     if not re.match(r"^[a-zA-Z0-9._%+-]+@gmail\.com$", email):
         raise HTTPException(status_code=400, detail="সঠিক @gmail.com ইমেইল ঠিকানা ব্যবহার করুন।")
-    if phone and not re.match(r"^01[3-9]\d{8}$", phone):
-        raise HTTPException(status_code=400, detail="সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন।")
-    if not nid.isdigit() or len(nid) < 10:
+    if not re.match(r"^01[3-9]\d{8}$", phone):
+        raise HTTPException(status_code=400, detail="সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন (যেমন: 017XXXXXXXX)।")
+    if len(nid) < 10:
         raise HTTPException(status_code=400, detail="সঠিক এনআইডি (NID) নম্বর দিন (কমপক্ষে ১০ ডিজিট)।")
+
     try:
         conn = get_db()
         cur = conn.cursor()
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT")
+        cur.execute("SELECT id FROM users WHERE LOWER(email) = %s OR nid_number = %s", (email, nid))
+        if cur.fetchone():
+            cur.close()
+            conn.close()
+            raise HTTPException(status_code=400, detail="এই ইমেইল অথবা NID নম্বর দিয়ে আগেই অ্যাকাউন্ট খোলা হয়েছে।")
+
         cur.execute("""
             INSERT INTO users (full_name, email, phone, password_hash, nid_number, dob, role, is_verified, created_at) 
             VALUES (%s, %s, %s, %s, %s, %s, 'Citizen', 1, %s)
             RETURNING id
-        """, (req.full_name.strip(), email, phone, hash_pw(req.password), nid, req.dob.strip(), datetime.now().strftime("%Y-%m-%d")))
+        """, (full_name, email, phone, hash_pw(req.password), nid, dob, datetime.now().strftime("%Y-%m-%d")))
 
         uid = cur.fetchone()['id']
         conn.commit()
@@ -454,9 +468,11 @@ def register(req: RegReq):
 
         log_audit("Citizen", f"নতুন নাগরিক নিবন্ধন (****{nid[-4:]})", f"USR-{uid}")
         return {"success": True, "message": "নিবন্ধন সফল হয়েছে! এখন ইমেইল বা মোবাইল নম্বর দিয়ে লগইন করুন।"}
+    except HTTPException:
+        raise
     except Exception as e:
         print("Register Error:", e)
-        raise HTTPException(status_code=400, detail="এই ইমেইল বা এনআইডি দিয়ে আগেই অ্যাকাউন্ট খোলা হয়েছে।")
+        raise HTTPException(status_code=500, detail=f"সার্ভার ত্রুটি: {str(e)}")
 
 
 class UpdateProfileReq(BaseModel):
@@ -559,7 +575,7 @@ def analyze_issue(req: AnalyzeReq):
         f"প্রযোজ্য আইন/বিধি ({law}) অনুযায়ী বিষয়টি দ্রুত তদন্তপূর্বক প্রয়োজনীয় ব্যবস্থা গ্রহণের জন্য বিনীত অনুরোধ জানাচ্ছি।\n\n"
         f"বিনীত নিবেদক,\n"
         f"একজন ভুক্তভোগী নাগরিক\n"
-        f"[দ্রষ্টব্য: এটি নাগরিকবন্ধু এআই জেনারেটেড খসড়া অভিযোগ]"
+        f"[দ্রষ্টব্য: এটি নাগরিক বন্ধু এআই জেনারেটেড খসড়া অভিযোগ]"
     )
     return {"domain": domain, "department": dept, "law": law, "draft": draft}
 
