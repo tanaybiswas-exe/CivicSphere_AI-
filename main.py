@@ -43,9 +43,24 @@ if os.path.exists("static"):
 if os.path.exists(UPLOAD_DIR):
     app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
+_DB_INITIALIZED = False
+
+
+def _raw_connect():
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor, connect_timeout=10)
+
+
+def ensure_db_ready():
+    global _DB_INITIALIZED
+    if _DB_INITIALIZED:
+        return
+    init_db()
+    _DB_INITIALIZED = True
+
 
 def get_db():
-    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    ensure_db_ready()
+    return _raw_connect()
 
 
 def hash_pw(pw: str) -> str:
@@ -94,7 +109,7 @@ def init_db():
         print("DATABASE_URL not found!")
         return
     try:
-        conn = get_db()
+        conn = _raw_connect()
         cur = conn.cursor()
         cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -207,7 +222,7 @@ def init_db():
 
 @app.on_event("startup")
 def startup_event():
-    init_db()
+    ensure_db_ready()
 
 
 @app.get("/", response_class=HTMLResponse)
