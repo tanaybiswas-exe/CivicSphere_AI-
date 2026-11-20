@@ -77,8 +77,7 @@ Millions of citizens in Bangladesh face everyday civic challenges—damaged road
 ## 📂 Repository Structure
 
 ```text
-├── main.py                 # FastAPI backend, Neon PostgreSQL schema, AI & Audit endpoints
-├── index.html              # Root frontend entry (synced with static/index.html)
+├── main.py                 # FastAPI backend, Neon PostgreSQL schema, AI & Audit endpoints             
 ├── static/
 │   └── index.html          # Main responsive UI, Leaflet maps, Chart.js & PDF.js client
 ├── requirements.txt        # Python dependencies
@@ -135,10 +134,4 @@ Millions of citizens in Bangladesh face everyday civic challenges—damaged road
 
 ---
 
-## 👨‍💻 Developer
 
-**Tanay Biswas Bandhan (তনয় বিশ্বাস বন্ধন)**  
-Department of Software Engineering, Daffodil International University  
-- **GitHub:** [@tanaybiswas-exe](https://github.com/tanaybiswas-exe)
-- **Portfolio:** [tanay-exe.tiiny.site](https://tanay-exe.tiiny.site/)
-- **Email:** tanaybiswas705@gmail.com
