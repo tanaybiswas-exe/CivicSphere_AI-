@@ -129,7 +129,7 @@ Millions of citizens in Bangladesh face everyday civic challenges—damaged road
 
 | Role | Email / Identifier | Password | Access Scope |
 | :--- | :--- | :--- | :--- |
-| **Citizen** | `tanay@gmail.com` | `citizen123` | Complaint saving, hazard pinning, profile editing |
+| **Citizen** | `tanay4@gmail.com` | `123456` | Complaint saving, hazard pinning, profile editing |
 | **Admin** | `admin@civicsphere.gov.bd` | `admin123` | Full analytics dashboard, user directory & audit ledger |
 
 ---
